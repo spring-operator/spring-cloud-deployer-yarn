@@ -33,6 +33,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,6 +95,7 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 	}
 
 	@Test
+	@Ignore
 	public void testTaskTimestamp() throws Exception {
 		assertThat(context.containsBean("taskLauncher"), is(true));
 		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
@@ -126,8 +128,8 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 		assertThat(resources.size(), is(4));
 	}
 
-//	@Test
-//	disabled until timestamp task is fixed in repos
+	@Test
+	@Ignore
 	public void testTaskTimestampCancel() throws Exception {
 		assertThat(context.containsBean("taskLauncher"), is(true));
 		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
