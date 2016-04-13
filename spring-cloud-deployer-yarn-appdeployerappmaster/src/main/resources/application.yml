@@ -1,0 +1,47 @@
+logging:
+  level:
+    org.springframework.yarn: DEBUG
+server:
+  port: 0
+endpoints:
+  shutdown:
+    enabled: true
+spring:
+  main:
+    show_banner: false
+  cloud:
+    dataflow:
+      yarn:
+        version: "@project.version@"
+  yarn:
+    appName: spring-cloud-dataflow-yarn-app
+    applicationBaseDir: /dataflow/apps/stream/
+    appmaster:
+      appmasterClass: org.springframework.cloud.dataflow.yarn.appdeployer.DataFlowAppmaster
+      keepContextAlive: true
+      localizer:
+        patterns:
+          - "servers.yml"
+      containercluster:
+        enabled: true
+        clusters:
+          module-template:
+            resource:
+              priority: ${dataflow.yarn.app.streamcontainer.priority:5}
+              memory: ${dataflow.yarn.app.streamcontainer.memory:256m}
+              virtualCores: ${dataflow.yarn.app.streamcontainer.virtualCores:1}
+              labelExpression: ${dataflow.yarn.app.streamcontainer.labelExpression:}
+            launchcontext:
+              options:
+                - ${dataflow.yarn.app.streamcontainer.javaOpts:}
+              arguments:
+                -Dserver.port: 0
+                -Dendpoints.jmx.unique-names: true
+                -Dspring.config.location: servers.yml
+              locality: false
+              archiveFile: placeholder.jar
+    endpoints:
+      containercluster:
+        enabled: true
+      containerregister:
+        enabled: false

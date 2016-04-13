@@ -1,0 +1,18 @@
+logging:
+  level:
+    org.springframework.yarn: DEBUG
+spring:
+  main:
+    show_banner: false
+  yarn:
+    appType: DATAFLOW
+    appName: scdtask
+    applicationBaseDir: /dataflow/apps/task/
+    client:
+      clientClass: org.springframework.yarn.client.DefaultApplicationYarnClient
+      files:
+        - "file:target/spring-cloud-deployer-yarn-build-tests/spring-cloud-deployer-yarn-tasklauncherappmaster-*.jar"
+      launchcontext:
+        archiveFile: spring-cloud-deployer-yarn-tasklauncherappmaster-${spring.cloud.deployer.yarn.version}.jar
+      resource:
+        memory: 1g
