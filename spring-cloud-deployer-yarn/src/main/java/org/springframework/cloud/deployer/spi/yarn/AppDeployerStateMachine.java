@@ -391,18 +391,8 @@ public class AppDeployerStateMachine {
 		@Override
 		public void execute(StateContext<States, Events> context) {
 			String clusterId = context.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class);
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-			String groupId = (String) context.getMessageHeader(HEADER_GROUP_ID);
-			String appName = "scdstream:" + appVersion + ":" + groupId;
-
-			CloudAppInstanceInfo appInstanceInfo = findRunningInstance(appName);
-			if (appInstanceInfo != null) {
-				for (String cluster : yarnCloudAppService.getClusters(appInstanceInfo.getApplicationId())) {
-					if (cluster.equals(clusterId)) {
-						yarnCloudAppService.stopCluster(appInstanceInfo.getApplicationId(), clusterId);
-					}
-				}
-			}
+			String applicationId = (String) context.getMessageHeader(HEADER_APPLICATION_ID);
+			yarnCloudAppService.stopCluster(applicationId, clusterId);
 		}
 	}
 
@@ -414,20 +404,8 @@ public class AppDeployerStateMachine {
 		@Override
 		public void execute(StateContext<States, Events> context) {
 			String clusterId = context.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class);
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-			String groupId = (String) context.getMessageHeader(HEADER_GROUP_ID);
-			String appName = "scdstream:" + appVersion + ":" + groupId;
-
-			CloudAppInstanceInfo appInstanceInfo = findRunningInstance(appName);
-			if (appInstanceInfo != null) {
-				for (String cluster : yarnCloudAppService.getClusters(appInstanceInfo.getApplicationId())) {
-					if (cluster.equals(clusterId)) {
-						yarnCloudAppService.destroyCluster(appInstanceInfo.getApplicationId(), clusterId);
-						context.getStateMachine().sendEvent(Events.CONTINUE);
-						return;
-					}
-				}
-			}
+			String applicationId = (String) context.getMessageHeader(HEADER_APPLICATION_ID);
+			yarnCloudAppService.destroyCluster(applicationId, clusterId);
 			context.getStateMachine().sendEvent(Events.CONTINUE);
 		}
 	}

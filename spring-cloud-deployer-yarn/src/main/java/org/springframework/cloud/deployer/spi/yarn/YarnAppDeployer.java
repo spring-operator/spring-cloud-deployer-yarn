@@ -178,10 +178,10 @@ public class YarnAppDeployer implements AppDeployer {
 		for (Entry<String, String> entry : yarnCloudAppService.getClustersStates(key.applicationId).entrySet()) {
 			if (ObjectUtils.nullSafeEquals(entry.getKey(), key.getClusterId())) {
 				instanceStatus = new InstanceStatus(key.getClusterId(), entry.getValue().equals("RUNNING"), null);
-				logger.debug("Return status of {} {}", entry.getKey(), instanceStatus);
 				break;
 			}
 		}
+		logger.info("Return status of {} {}", key.getClusterId(), instanceStatus);
 		return AppStatus.of(id)
 				.with(instanceStatus)
 				.build();

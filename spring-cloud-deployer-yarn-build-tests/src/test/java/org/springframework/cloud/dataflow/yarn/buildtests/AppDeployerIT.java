@@ -157,8 +157,8 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 		deployer.undeploy(logId);
 		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "stopped inbound.ticktock.0");
 
-//		Collection<CloudAppInstanceInfo> instances = yarnCloudAppService.getInstances(CloudAppType.STREAM);
-//		assertThat(instances.size(), is(1));
+		assertThat(deployer.status(timeId).getState(), is(DeploymentState.unknown));
+		assertThat(deployer.status(logId).getState(), is(DeploymentState.unknown));
 
 		List<Resource> resources = ContainerLogUtils.queryContainerLogs(
 				getYarnCluster(), applicationId);
@@ -205,7 +205,6 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 				.build();
 
 		Map<String, String> timeProperties = new HashMap<>();
-//		timeProperties.put("artifact", timeResource.getFilename());
 		timeProperties.put("spring.cloud.stream.bindings.output.destination", "timehdfs.0");
 		AppDefinition timeDefinition = new AppDefinition("time", timeProperties);
 		Map<String, String> timeEnvironmentProperties = new HashMap<>();
@@ -214,7 +213,6 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 		AppDeploymentRequest timeRequest = new AppDeploymentRequest(timeDefinition, timeResource, timeEnvironmentProperties);
 
 		Map<String, String> hdfsProperties = new HashMap<>();
-//		hdfsProperties.put("artifact", hdfsResource.getFilename());
 		hdfsProperties.put("spring.cloud.stream.bindings.input.destination", "timehdfs.0");
 		hdfsProperties.put("spring.hadoop.fsUri", fsUri);
 		AppDefinition hdfsDefinition = new AppDefinition("log", hdfsProperties);
@@ -249,6 +247,97 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 
 		assertThat(resources, notNullValue());
 		assertThat(resources.size(), is(6));
+	}
+
+	@Test
+	public void testSmokeDeployer() throws Exception {
+		assertThat(context.containsBean("appDeployer"), is(true));
+		assertThat(context.getBean("appDeployer"), instanceOf(YarnAppDeployer.class));
+		AppDeployer deployer = context.getBean("appDeployer", AppDeployer.class);
+		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
+
+		MavenProperties m2Properties = new MavenProperties();
+		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+
+		MavenResource timeResource = new MavenResource.Builder(m2Properties)
+				.artifactId("time-source")
+				.groupId(GROUP_ID)
+				.version(artifactVersion)
+				.extension("jar")
+				.classifier("exec")
+				.build();
+
+		MavenResource logResource = new MavenResource.Builder(m2Properties)
+				.artifactId("log-sink")
+				.groupId(GROUP_ID)
+				.version(artifactVersion)
+				.extension("jar")
+				.classifier("exec")
+				.build();
+
+		Map<String, String> timeProperties = new HashMap<>();
+		timeProperties.put("spring.cloud.stream.bindings.output.destination", "ticktock.0");
+		AppDefinition timeDefinition = new AppDefinition("time", timeProperties);
+		Map<String, String> timeEnvironmentProperties = new HashMap<>();
+		timeEnvironmentProperties.put(AppDeployer.COUNT_PROPERTY_KEY, "1");
+		timeEnvironmentProperties.put(AppDeployer.GROUP_PROPERTY_KEY, "ticktock");
+		AppDeploymentRequest timeRequest = new AppDeploymentRequest(timeDefinition, timeResource, timeEnvironmentProperties);
+
+		Map<String, String> logProperties = new HashMap<>();
+		logProperties.put("spring.cloud.stream.bindings.input.destination", "ticktock.0");
+		logProperties.put("expression", "new String(payload + ' hello')");
+		AppDefinition logDefinition = new AppDefinition("log", logProperties);
+		Map<String, String> logEnvironmentProperties = new HashMap<>();
+		logEnvironmentProperties.put(AppDeployer.COUNT_PROPERTY_KEY, "1");
+		logEnvironmentProperties.put(AppDeployer.GROUP_PROPERTY_KEY, "ticktock");
+		AppDeploymentRequest logRequest = new AppDeploymentRequest(logDefinition, logResource, logEnvironmentProperties);
+
+
+		String timeId = deployer.deploy(timeRequest);
+		assertThat(timeId, notNullValue());
+		String logId = deployer.deploy(logRequest);
+		assertThat(logId, notNullValue());
+
+		ApplicationId applicationId = assertWaitApp(2, TimeUnit.MINUTES, yarnCloudAppService);
+		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "Started TimeSourceApplication");
+		assertThat(deployer.status(timeId).getState(), is(DeploymentState.deployed));
+		assertWaitFileContent(1, TimeUnit.MINUTES, applicationId, "Started LogSinkApplication");
+		assertThat(deployer.status(logId).getState(), is(DeploymentState.deployed));
+		assertWaitFileContent(1, TimeUnit.MINUTES, applicationId, "hello");
+
+		for (int i = 0; i < 10; i++) {
+			deployer.status(timeId);
+			deployer.status(logId);
+		}
+		deployer.undeploy(timeId);
+		for (int i = 0; i < 500; i++) {
+			deployer.status(timeId);
+			deployer.status(logId);
+		}
+		deployer.undeploy(logId);
+		for (int i = 0; i < 500; i++) {
+			deployer.status(timeId);
+			deployer.status(logId);
+		}
+
+		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "stopped outbound.ticktock.0");
+		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "stopped inbound.ticktock.0");
+
+		List<Resource> resources = ContainerLogUtils.queryContainerLogs(
+				getYarnCluster(), applicationId);
+
+		assertThat(resources, notNullValue());
+		assertThat(resources.size(), is(6));
+
+		for (Resource res : resources) {
+			File file = res.getFile();
+			String content = ContainerLogUtils.getFileContent(file);
+			if (file.getName().endsWith("stdout")) {
+				assertThat(file.length(), greaterThan(0l));
+			} else if (file.getName().endsWith("Container.stderr")) {
+				assertThat("stderr with content: " + content, file.length(), is(0l));
+			}
+		}
 	}
 
 	private ApplicationId assertWaitApp(long timeout, TimeUnit unit, YarnCloudAppService yarnCloudAppService) throws Exception {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 the original author or authors.
+ * Copyright 2015-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.yarn.YarnSystemConstants;
 import org.springframework.yarn.boot.actuate.endpoint.YarnContainerClusterEndpoint;
@@ -55,6 +57,7 @@ import org.springframework.yarn.boot.actuate.endpoint.mvc.ContainerClusterCreate
 import org.springframework.yarn.boot.actuate.endpoint.mvc.ContainerClusterModifyRequest;
 import org.springframework.yarn.boot.actuate.endpoint.mvc.domain.ContainerClusterResource;
 import org.springframework.yarn.boot.actuate.endpoint.mvc.domain.YarnContainerClusterEndpointResource;
+import org.springframework.yarn.boot.app.YarnContainerClusterClientException;
 import org.springframework.yarn.boot.app.YarnContainerClusterOperations;
 import org.springframework.yarn.boot.app.YarnContainerClusterTemplate;
 import org.springframework.yarn.boot.properties.SpringYarnProperties;
@@ -206,19 +209,29 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 	}
 
 	public List<ClustersInfoReportData> getClusterInfo(ApplicationId applicationId, String clusterId) {
-		YarnContainerClusterOperations operations = buildClusterOperations(restTemplate, yarnClient, applicationId);
-		ContainerClusterResource response = operations.clusterInfo(clusterId);
 		List<ClustersInfoReportData> data = new ArrayList<ClustersInfoReportData>();
+		YarnContainerClusterOperations operations = buildClusterOperations(restTemplate, yarnClient, applicationId);
 
-		Integer pany = response.getGridProjection().getProjectionData().getAny();
-		Map<String, Integer> phosts = response.getGridProjection().getProjectionData().getHosts();
-		Map<String, Integer> pracks = response.getGridProjection().getProjectionData().getRacks();
-		Integer sany = response.getGridProjection().getSatisfyState().getAllocateData().getAny();
-		Map<String, Integer> shosts = response.getGridProjection().getSatisfyState().getAllocateData().getHosts();
-		Map<String, Integer> sracks = response.getGridProjection().getSatisfyState().getAllocateData().getRacks();
+		try {
+			ContainerClusterResource response = operations.clusterInfo(clusterId);
+			Integer pany = response.getGridProjection().getProjectionData().getAny();
+			Map<String, Integer> phosts = response.getGridProjection().getProjectionData().getHosts();
+			Map<String, Integer> pracks = response.getGridProjection().getProjectionData().getRacks();
+			Integer sany = response.getGridProjection().getSatisfyState().getAllocateData().getAny();
+			Map<String, Integer> shosts = response.getGridProjection().getSatisfyState().getAllocateData().getHosts();
+			Map<String, Integer> sracks = response.getGridProjection().getSatisfyState().getAllocateData().getRacks();
 
-		data.add(new ClustersInfoReportData(response.getContainerClusterState().getClusterState().toString(),
-				response.getGridProjection().getMembers().size(), pany, phosts, pracks, sany, shosts, sracks));
+			data.add(new ClustersInfoReportData(response.getContainerClusterState().getClusterState().toString(),
+					response.getGridProjection().getMembers().size(), pany, phosts, pracks, sany, shosts, sracks));
+		} catch (YarnContainerClusterClientException e) {
+			if (e.getRootCause() instanceof HttpClientErrorException) {
+				HttpStatus statusCode = ((HttpClientErrorException)e.getRootCause()).getStatusCode();
+				if (statusCode != HttpStatus.NOT_FOUND) {
+					throw e;
+				}
+			}
+		}
+
 		return data;
 	}
 
@@ -244,6 +257,13 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 	}
 
 	public void destroyCluster(ApplicationId applicationId, String clusterId) {
+		Collection<CloudAppInstanceInfo> submittedApplications = getSubmittedApplications(applicationId.toString());
+		if (submittedApplications.isEmpty()) {
+			return;
+		}
+		if (submittedApplications.iterator().next().getState() != "RUNNING") {
+			return;
+		}
 		YarnContainerClusterOperations operations = buildClusterOperations(restTemplate, yarnClient, applicationId);
 		operations.clusterDestroy(clusterId);
 	}
@@ -256,10 +276,17 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 	}
 
 	public void stopCluster(ApplicationId applicationId, String clusterId) {
+		Collection<CloudAppInstanceInfo> submittedApplications = getSubmittedApplications(applicationId.toString());
+		if (submittedApplications.isEmpty()) {
+			return;
+		}
+		if (submittedApplications.iterator().next().getState() != "RUNNING") {
+			return;
+		}
 		YarnContainerClusterOperations operations = buildClusterOperations(restTemplate, yarnClient, applicationId);
 		ContainerClusterModifyRequest request = new ContainerClusterModifyRequest();
 		request.setAction("stop");
-		operations.clusterStart(clusterId, request);
+		operations.clusterStop(clusterId, request);
 	}
 
 	private synchronized YarnContainerClusterOperations buildClusterOperations(RestTemplate restTemplate,
