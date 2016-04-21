@@ -16,12 +16,14 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.deployer.spi.app.AppDeployer;
@@ -105,6 +107,8 @@ public class YarnAppDeployer implements AppDeployer {
 				contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "=" + entry.getValue());
 			}
 		}
+		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : "/dataflow/artifacts/cache/";
+		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath);
 
 		// TODO: using default app name "app" until we start to customise
 		//       via deploymentProperties
@@ -114,6 +118,7 @@ public class YarnAppDeployer implements AppDeployer {
 				.setHeader(AppDeployerStateMachine.HEADER_GROUP_ID, group)
 				.setHeader(AppDeployerStateMachine.HEADER_COUNT, count)
 				.setHeader(AppDeployerStateMachine.HEADER_ARTIFACT, resource)
+				.setHeader(AppDeployerStateMachine.HEADER_ARTIFACT_DIR, artifactPath)
 				.setHeader(AppDeployerStateMachine.HEADER_DEFINITION_PARAMETERS, definitionParameters)
 				.setHeader(AppDeployerStateMachine.HEADER_CONTEXT_RUN_ARGS, contextRunArgs)
 				.build();
@@ -185,6 +190,23 @@ public class YarnAppDeployer implements AppDeployer {
 		return AppStatus.of(id)
 				.with(instanceStatus)
 				.build();
+	}
+
+	private boolean isHdfsResource(Resource resource) {
+		try {
+			return resource != null && resource.getURI().getScheme().equals("hdfs");
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
+	private String getHdfsArtifactPath(Resource resource) {
+		String path = null;
+		try {
+			path = "/" + FilenameUtils.getPath(resource.getURI().getPath());
+		} catch (IOException e) {
+		}
+		return path;
 	}
 
 	private static class DeploymentKey {

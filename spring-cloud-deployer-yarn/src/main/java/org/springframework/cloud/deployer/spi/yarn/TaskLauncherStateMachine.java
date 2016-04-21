@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 
@@ -45,11 +46,13 @@ import org.springframework.util.StringUtils;
 public class TaskLauncherStateMachine {
 
 	private static final Logger logger = LoggerFactory.getLogger(TaskLauncherStateMachine.class);
+	static final String VAR_ERROR = "error";
 	static final String VAR_APP_VERSION = "appVersion";
 	static final String VAR_APPLICATION_ID = "applicationId";
 	static final String HEADER_APP_VERSION = "appVersion";
 	static final String HEADER_APP_NAME = "appName";
 	static final String HEADER_ARTIFACT = "artifact";
+	static final String HEADER_ARTIFACT_DIR = "artifactDir";
 	static final String HEADER_APPLICATION_ID = "applicationId";
 	static final String HEADER_DEFINITION_PARAMETERS = "definitionParameters";
 	static final String HEADER_CONTEXT_RUN_ARGS = "contextRunArgs";
@@ -117,6 +120,9 @@ public class TaskLauncherStateMachine {
 					.state(States.PUSHAPP, new PushAppAction(), null)
 					.state(States.PUSHARTIFACT, new PushArtifactAction(), null)
 					.state(States.STARTINSTANCE, new StartInstanceAction(), null)
+					.choice(States.DEPLOYEXITCHOICE)
+					.state(States.DEPLOYEXITERROR)
+					.state(States.DEPLOYEXITREADY)
 					.and()
 				.withStates()
 					.parent(States.UNDEPLOYMODULE)
@@ -137,7 +143,7 @@ public class TaskLauncherStateMachine {
 				.event(Events.CONTINUE)
 				.and()
 			.withExternal()
-				.source(States.STARTINSTANCE).target(States.READY)
+				.source(States.STARTINSTANCE).target(States.DEPLOYEXITCHOICE)
 				.and()
 			.withExternal()
 				.source(States.STOPINSTANCE).target(States.READY)
@@ -162,7 +168,21 @@ public class TaskLauncherStateMachine {
 				.source(States.PUSHARTIFACT).target(States.STARTINSTANCE)
 				.and()
 			.withExternal()
-				.source(States.PUSHAPP).target(States.PUSHARTIFACT);
+				.source(States.PUSHAPP).target(States.PUSHARTIFACT)
+				.and()
+			.withChoice()
+				.source(States.DEPLOYEXITCHOICE)
+				.first(States.DEPLOYEXITERROR, new ExitDeployGuard())
+				.last(States.DEPLOYEXITREADY)
+				.and()
+			.withExternal()
+				.source(States.DEPLOYEXITERROR).target(States.ERROR)
+				.and()
+			.withExternal()
+				.source(States.DEPLOYEXITREADY).target(States.READY)
+				.and()
+			.withExternal()
+				.source(States.ERROR).target(States.READY);
 
 		return builder.build();
 	}
@@ -218,6 +238,14 @@ public class TaskLauncherStateMachine {
 		}
 	}
 
+	private class ExitDeployGuard implements Guard<States, Events> {
+
+		@Override
+		public boolean evaluate(StateContext<States, Events> context) {
+			return context.getExtendedState().getVariables().containsKey(VAR_ERROR);
+		}
+	}
+
 	/**
 	 * {@link Action} which pushes application version into hdfs found
 	 * from variable {@code appVersion}.
@@ -235,8 +263,23 @@ public class TaskLauncherStateMachine {
 
 		@Override
 		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader("artifact");
-			yarnCloudAppService.pushArtifact(artifact, "/dataflow/apps/artifact");
+			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
+			String artifactDir = (String) context.getMessageHeader(HEADER_ARTIFACT_DIR);
+			if (!isHdfsResource(artifact)) {
+				yarnCloudAppService.pushArtifact(artifact, artifactDir);
+			} else {
+				if (!artifact.exists()) {
+					context.getExtendedState().getVariables().put(VAR_ERROR, new RuntimeException("hdfs artifact missing"));
+				}
+			}
+		}
+	}
+
+	private boolean isHdfsResource(Resource resource) {
+		try {
+			return resource != null && resource.getURI().getScheme().equals("hdfs");
+		} catch (IOException e) {
+			return false;
 		}
 	}
 
@@ -300,6 +343,17 @@ public class TaskLauncherStateMachine {
 
 		/** State where app instance is started. */
 		STARTINSTANCE,
+
+		/** Pseudostate where choice to exit either ready or error is made. */
+		DEPLOYEXITCHOICE,
+
+		/** Temporary intermediate state to exit into ready from choice */
+		// TODO: bug is ssm
+		DEPLOYEXITREADY,
+
+		/** Temporary intermediate state to exit into error from choice */
+		// TODO: bug is ssm
+		DEPLOYEXITERROR,
 
 		/** Super state of all other states handling undeployment. */
 		UNDEPLOYMODULE,

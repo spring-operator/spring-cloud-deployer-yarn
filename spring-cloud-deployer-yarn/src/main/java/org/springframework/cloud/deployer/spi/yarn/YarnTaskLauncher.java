@@ -16,12 +16,14 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.deployer.spi.core.AppDefinition;
@@ -92,9 +94,10 @@ public class YarnTaskLauncher implements TaskLauncher {
 			contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.parameters." + entry.getKey() + ".='" + entry.getValue() + "'");
 		}
 
+		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : "/dataflow/artifacts/cache/";
+
 		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.yarn.appmaster.launchcontext.archiveFile=" + artifact);
-		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifact);
-		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.artifact=" + artifact);
+		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath + artifact);
 
 		// deployment properties override servers.yml which overrides application.yml
 		for (Entry<String, String> entry : environmentProperties.entrySet()) {
@@ -108,6 +111,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 		final Message<Events> message = MessageBuilder.withPayload(Events.DEPLOY)
 				.setHeader(TaskLauncherStateMachine.HEADER_APP_VERSION, "app")
 				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT, resource)
+				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT_DIR, artifactPath)
 				.setHeader(TaskLauncherStateMachine.HEADER_DEFINITION_PARAMETERS, definitionParameters)
 				.setHeader(TaskLauncherStateMachine.HEADER_CONTEXT_RUN_ARGS, contextRunArgs)
 				.build();
@@ -125,6 +129,8 @@ public class YarnTaskLauncher implements TaskLauncher {
 						DeploymentKey key = new DeploymentKey(name, applicationId);
 						id.set(key.toString());
 					}
+				} else if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId() == States.ERROR) {
+					id.setException(new RuntimeException());
 				}
 			}
 		};
@@ -151,6 +157,22 @@ public class YarnTaskLauncher implements TaskLauncher {
 		}
 	}
 
+	private boolean isHdfsResource(Resource resource) {
+		try {
+			return resource != null && resource.getURI().getScheme().equals("hdfs");
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
+	private String getHdfsArtifactPath(Resource resource) {
+		String path = null;
+		try {
+			path = "/" + FilenameUtils.getPath(resource.getURI().getPath());
+		} catch (IOException e) {
+		}
+		return path;
+	}
 
 	@Override
 	public void cancel(String id) {

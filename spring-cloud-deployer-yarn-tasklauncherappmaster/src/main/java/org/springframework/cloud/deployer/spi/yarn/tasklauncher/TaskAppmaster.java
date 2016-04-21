@@ -54,6 +54,8 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 
 	private ResourceLocalizer artifactResourceLocalizer;
 
+	private boolean finishRequested = false;
+
 	@Override
 	protected void onInit() throws Exception {
 		super.onInit();
@@ -69,7 +71,9 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 		if (getAllocator() instanceof Lifecycle) {
 			((Lifecycle)getAllocator()).stop();
 		}
-		super.doStop();
+		if (!finishRequested) {
+			super.doStop();
+		}
 	}
 
 	@Override
@@ -83,12 +87,26 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 		return list;
 	}
 
+	@Override
+	protected boolean shutdownContainers() {
+		// SHDP-561
+		return true;
+	}
+
+	@Override
+	protected void notifyCompleted() {
+		// SHDP-561
+		finishAppmaster();
+		finishRequested = true;
+		super.notifyCompleted();
+	}
+
 	private ResourceLocalizer buildArtifactResourceLocalizer() throws Exception {
 		String artifact = taskAppmasterProperties.getArtifact();
 		log.info("Building localizer for artifact " + artifact);
 		LocalResourcesFactoryBean fb = new LocalResourcesFactoryBean();
 		fb.setConfiguration(getConfiguration());
-		TransferEntry te = new TransferEntry(LocalResourceType.FILE, null, "/dataflow/apps/artifact/" + artifact, false);
+		TransferEntry te = new TransferEntry(LocalResourceType.FILE, null, artifact, false);
 		ArrayList<TransferEntry> hdfsEntries = new ArrayList<TransferEntry>();
 		hdfsEntries.add(te);
 		fb.setHdfsEntries(hdfsEntries);

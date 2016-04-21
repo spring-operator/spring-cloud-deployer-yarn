@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +48,13 @@ import org.springframework.util.StringUtils;
 public class AppDeployerStateMachine {
 
 	private static final Logger logger = LoggerFactory.getLogger(AppDeployerStateMachine.class);
+	static final String VAR_ERROR = "error";
 	static final String VAR_APP_VERSION = "appVersion";
 	static final String VAR_APPLICATION_ID = "applicationId";
 	static final String HEADER_APP_VERSION = "appVersion";
 	static final String HEADER_CLUSTER_ID = "clusterId";
 	static final String HEADER_ARTIFACT = "artifact";
+	static final String HEADER_ARTIFACT_DIR = "artifactDir";
 	static final String HEADER_GROUP_ID = "groupId";
 	static final String HEADER_APPLICATION_ID = "applicationId";
 	static final String HEADER_COUNT = "count";
@@ -349,8 +352,23 @@ public class AppDeployerStateMachine {
 
 		@Override
 		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader("artifact");
-			yarnCloudAppService.pushArtifact(artifact, "/dataflow/apps/artifact");
+			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
+			String artifactDir = (String) context.getMessageHeader(HEADER_ARTIFACT_DIR);
+			if (!isHdfsResource(artifact)) {
+				yarnCloudAppService.pushArtifact(artifact, artifactDir);
+			} else {
+				if (!artifact.exists()) {
+					context.getExtendedState().getVariables().put(VAR_ERROR, new RuntimeException("hdfs artifact missing"));
+				}
+			}
+		}
+	}
+
+	private boolean isHdfsResource(Resource resource) {
+		try {
+			return resource != null && resource.getURI().getScheme().equals("hdfs");
+		} catch (IOException e) {
+			return false;
 		}
 	}
 
@@ -362,7 +380,7 @@ public class AppDeployerStateMachine {
 		@SuppressWarnings("unchecked")
 		@Override
 		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader("artifact");
+			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
 			yarnCloudAppService.createCluster(context.getExtendedState().get(VAR_APPLICATION_ID, String.class), context
 					.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class),
 					context.getMessageHeaders().get(HEADER_COUNT, Integer.class),

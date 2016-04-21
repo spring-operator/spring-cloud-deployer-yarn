@@ -78,7 +78,7 @@ public class TaskLauncherStateMachineTests {
 						.and()
 					.step()
 						.sendEvent(message)
-						.expectStateChanged(6)
+						.expectStateChanged(7)
 						.expectStates(States.READY)
 						.and()
 					.build();
@@ -128,7 +128,7 @@ public class TaskLauncherStateMachineTests {
 					.step()
 						.sendEvent(message)
 						.sendEvent(message)
-						.expectStateChanged(11)
+						.expectStateChanged(13)
 						.expectStates(States.READY)
 						.and()
 					.build();
@@ -300,16 +300,12 @@ public class TaskLauncherStateMachineTests {
 
 		@Override
 		public Map<String, String> getClustersStates(String yarnApplicationId) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public void killApplication(String yarnApplicationId, CloudAppType cloudAppType) {
-			// TODO Auto-generated method stub
-
 		}
-
 	}
 
 	private static class TestStateMachineListener extends StateMachineListenerAdapter<States, Events> {
@@ -321,5 +317,4 @@ public class TaskLauncherStateMachineTests {
 			latch.countDown();
 		}
 	}
-
 }

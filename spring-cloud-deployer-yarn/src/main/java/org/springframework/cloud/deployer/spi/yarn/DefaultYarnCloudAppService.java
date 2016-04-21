@@ -88,10 +88,10 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 			FileCopyUtils.copy(artifact.getInputStream(), new FileOutputStream(tmp));
 			@SuppressWarnings("resource")
 			FsShell shell = new FsShell(configuration);
-			String artifactPath = "/dataflow/apps/artifact/" + artifact.getFile().getName();
+			String artifactPath = dir + "/" + artifact.getFile().getName();
 			if (!shell.test(artifactPath)) {
 				Log.info("Pushing artifact {} into dir {}", artifact, dir);
-				shell.copyFromLocal(tmp.getAbsolutePath(), "/dataflow/apps/artifact/" + artifact.getFile().getName());
+				shell.copyFromLocal(tmp.getAbsolutePath(), artifactPath);
 			}
 		} catch (Exception e) {
 			logger.error("Error pushing artifact", e);

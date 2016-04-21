@@ -23,17 +23,18 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +57,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.hadoop.fs.FsShell;
+import org.springframework.data.hadoop.fs.HdfsResourceLoader;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.yarn.test.support.ContainerLogUtils;
 
@@ -95,7 +99,6 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 	}
 
 	@Test
-	@Ignore
 	public void testTaskTimestamp() throws Exception {
 		assertThat(context.containsBean("taskLauncher"), is(true));
 		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
@@ -129,7 +132,69 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 	}
 
 	@Test
-	@Ignore
+	public void testTaskTimestampAsHdfsResource() throws Exception {
+		assertThat(context.containsBean("taskLauncher"), is(true));
+		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
+		TaskLauncher deployer = context.getBean("taskLauncher", TaskLauncher.class);
+		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
+
+		MavenProperties m2Properties = new MavenProperties();
+		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+
+		MavenResource base = new MavenResource.Builder(m2Properties)
+				.artifactId("timestamp-task")
+				.groupId(GROUP_ID)
+				.version(artifactVersion)
+				.extension("jar")
+				.classifier("exec")
+				.build();
+		copyFile(base, "/dataflow/artifacts/repo/");
+
+		@SuppressWarnings("resource")
+		HdfsResourceLoader resourceLoader = new HdfsResourceLoader(getConfiguration());
+		resourceLoader.setHandleNoprefix(true);
+		Resource resource = resourceLoader.getResource("hdfs:/dataflow/artifacts/repo/timestamp-task-1.0.0.BUILD-SNAPSHOT-exec.jar");
+
+		AppDefinition definition = new AppDefinition("timestamp-task", null);
+		AppDeploymentRequest request = new AppDeploymentRequest(definition, resource);
+		String id = deployer.launch(request);
+		assertThat(id, notNullValue());
+
+		ApplicationId applicationId = assertWaitApp(2, TimeUnit.MINUTES, yarnCloudAppService);
+		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "Started TaskApplication");
+
+		List<Resource> resources = ContainerLogUtils.queryContainerLogs(
+				getYarnCluster(), applicationId);
+
+		assertThat(resources, notNullValue());
+		assertThat(resources.size(), is(4));
+	}
+
+	@Test
+	public void testTaskTimestampAsHdfsResourceNotExist() throws Exception {
+		assertThat(context.containsBean("taskLauncher"), is(true));
+		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
+		TaskLauncher deployer = context.getBean("taskLauncher", TaskLauncher.class);
+
+		@SuppressWarnings("resource")
+		HdfsResourceLoader resourceLoader = new HdfsResourceLoader(getConfiguration());
+		resourceLoader.setHandleNoprefix(true);
+		Resource resource = resourceLoader.getResource("hdfs:/dataflow/artifacts/cache/timestamp-task-1.0.0.BUILD-SNAPSHOT-exec.jar");
+
+		AppDefinition definition = new AppDefinition("timestamp-task", null);
+		AppDeploymentRequest request = new AppDeploymentRequest(definition, resource);
+
+		Exception deployException = null;
+
+		try {
+			deployer.launch(request);
+		} catch (Exception e) {
+			deployException = e;
+		}
+		assertThat("Expected deploy exception", deployException, notNullValue());
+	}
+
+	@Test
 	public void testTaskTimestampCancel() throws Exception {
 		assertThat(context.containsBean("taskLauncher"), is(true));
 		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
@@ -177,6 +242,17 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 			} else if (file.getName().endsWith("Container.stderr")) {
 				assertThat("stderr with content: " + content, file.length(), is(0l));
 			}
+		}
+	}
+
+	private void copyFile(Resource artifact, String dir) throws Exception {
+		File tmp = File.createTempFile(UUID.randomUUID().toString(), null);
+		FileCopyUtils.copy(artifact.getInputStream(), new FileOutputStream(tmp));
+		@SuppressWarnings("resource")
+		FsShell shell = new FsShell(getConfiguration());
+		String artifactPath = dir + artifact.getFile().getName();
+		if (!shell.test(artifactPath)) {
+			shell.copyFromLocal(tmp.getAbsolutePath(), dir + artifact.getFile().getName());
 		}
 	}
 

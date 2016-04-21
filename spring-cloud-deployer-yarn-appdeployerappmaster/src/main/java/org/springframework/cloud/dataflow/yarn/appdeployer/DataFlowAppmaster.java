@@ -27,6 +27,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.yarn.am.cluster.ContainerCluster;
 import org.springframework.yarn.am.cluster.ManagedContainerClusterAppmaster;
 import org.springframework.yarn.am.grid.support.ProjectionData;
@@ -46,6 +47,9 @@ public class DataFlowAppmaster extends ManagedContainerClusterAppmaster {
 
 	private final static Log log = LogFactory.getLog(DataFlowAppmaster.class);
 	private final Map<String, ResourceLocalizer> artifactLocalizers = new HashMap<>();
+
+	@Autowired
+	private StreamAppmasterProperties streamAppmasterProperties;
 
 	@Override
 	protected void onInit() throws Exception {
@@ -78,12 +82,13 @@ public class DataFlowAppmaster extends ManagedContainerClusterAppmaster {
 	public ContainerCluster createContainerCluster(String clusterId, String clusterDef, ProjectionData projectionData,
 			Map<String, Object> extraProperties) {
 		log.info("intercept createContainerCluster " + clusterId);
+		String artifactPath = streamAppmasterProperties.getArtifact();
 		try {
 			LocalResourcesFactoryBean lrfb = new LocalResourcesFactoryBean();
 			lrfb.setConfiguration(getConfiguration());
 
-			String artifact = (String) extraProperties.get("containerArtifact");
-			TransferEntry te = new TransferEntry(LocalResourceType.FILE, null, "/dataflow/apps/artifact/" + artifact, false);
+			String containerArtifact = (String) extraProperties.get("containerArtifact");
+			TransferEntry te = new TransferEntry(LocalResourceType.FILE, null, artifactPath + "/" + containerArtifact, false);
 			ArrayList<TransferEntry> hdfsEntries = new ArrayList<TransferEntry>();
 			hdfsEntries.add(te);
 			lrfb.setHdfsEntries(hdfsEntries);
