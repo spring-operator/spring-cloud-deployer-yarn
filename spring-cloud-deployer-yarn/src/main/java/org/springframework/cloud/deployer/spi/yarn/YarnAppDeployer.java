@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.deployer.spi.app.AppDeployer;
 import org.springframework.cloud.deployer.spi.app.AppInstanceStatus;
 import org.springframework.cloud.deployer.spi.app.AppStatus;
+import org.springframework.cloud.deployer.spi.app.AppStatus.Builder;
 import org.springframework.cloud.deployer.spi.app.DeploymentState;
 import org.springframework.cloud.deployer.spi.core.AppDefinition;
 import org.springframework.cloud.deployer.spi.core.AppDeploymentRequest;
@@ -47,6 +48,7 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 import org.springframework.util.concurrent.SettableListenableFuture;
+import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 /**
  * {@link ModuleDeployer} which communicates with a Yarn app running
@@ -179,17 +181,18 @@ public class YarnAppDeployer implements AppDeployer {
 	public AppStatus status(String id) {
 		logger.info("Checking status of {}", id);
 		DeploymentKey key = new DeploymentKey(id);
-		InstanceStatus instanceStatus = new InstanceStatus(key.getClusterId(), false, null);
-		for (Entry<String, String> entry : yarnCloudAppService.getClustersStates(key.applicationId).entrySet()) {
+		Builder builder = AppStatus.of(id);
+		for (Entry<String, ClustersInfoReportData> entry : yarnCloudAppService.getClustersStates(key.applicationId).entrySet()) {
 			if (ObjectUtils.nullSafeEquals(entry.getKey(), key.getClusterId())) {
-				instanceStatus = new InstanceStatus(key.getClusterId(), entry.getValue().equals("RUNNING"), null);
+				ClustersInfoReportData data = entry.getValue();
+				for (int i = 0 ; i < data.getProjectionAny(); i++) {
+					InstanceStatus instanceStatus = new InstanceStatus(key.getClusterId() + "-" + i, i < data.getCount(), null);
+					builder.with(instanceStatus);
+				}
 				break;
 			}
 		}
-		logger.info("Return status of {} {}", key.getClusterId(), instanceStatus);
-		return AppStatus.of(id)
-				.with(instanceStatus)
-				.build();
+		return builder.build();
 	}
 
 	private boolean isHdfsResource(Resource resource) {

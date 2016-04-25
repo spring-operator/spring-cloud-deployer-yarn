@@ -46,6 +46,7 @@ import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.listener.StateMachineListenerAdapter;
 import org.springframework.statemachine.test.StateMachineTestPlan;
 import org.springframework.statemachine.test.StateMachineTestPlanBuilder;
+import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 public class TaskLauncherStateMachineTests {
 
@@ -254,11 +255,6 @@ public class TaskLauncherStateMachineTests {
 		}
 
 		@Override
-		public Map<String, String> getClustersStates() {
-			return null;
-		}
-
-		@Override
 		public Collection<String> getClusters(String yarnApplicationId) {
 			return null;
 		}
@@ -299,7 +295,7 @@ public class TaskLauncherStateMachineTests {
 		}
 
 		@Override
-		public Map<String, String> getClustersStates(String yarnApplicationId) {
+		public Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId) {
 			return null;
 		}
 

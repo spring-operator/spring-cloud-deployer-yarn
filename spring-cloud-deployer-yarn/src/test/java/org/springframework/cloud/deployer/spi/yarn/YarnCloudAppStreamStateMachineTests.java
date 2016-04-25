@@ -45,6 +45,7 @@ import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.listener.StateMachineListenerAdapter;
 import org.springframework.statemachine.test.StateMachineTestPlan;
 import org.springframework.statemachine.test.StateMachineTestPlanBuilder;
+import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 /**
  * Tests for {@link StateMachine} which is controlling
@@ -367,11 +368,6 @@ public class YarnCloudAppStreamStateMachineTests {
 		}
 
 		@Override
-		public Map<String, String> getClustersStates() {
-			return null;
-		}
-
-		@Override
 		public Collection<String> getClusters(String yarnApplicationId) {
 			return null;
 		}
@@ -411,15 +407,12 @@ public class YarnCloudAppStreamStateMachineTests {
 		}
 
 		@Override
-		public Map<String, String> getClustersStates(String yarnApplicationId) {
-			// TODO Auto-generated method stub
+		public Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId) {
 			return null;
 		}
 
 		@Override
 		public void killApplication(String yarnApplicationId, CloudAppType cloudAppType) {
-			// TODO Auto-generated method stub
-
 		}
 
 	}

@@ -177,21 +177,8 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 	}
 
 	@Override
-	public Map<String, String> getClustersStates() {
-		HashMap<String, String> states = new HashMap<String, String>();
-		for (CloudAppInstanceInfo instanceInfo : getInstances(CloudAppType.STREAM)) {
-			if (instanceInfo.getName().startsWith("scdstream:app") && instanceInfo.getState().equals("RUNNING")) {
-				for (String cluster : getClusters(instanceInfo.getApplicationId())) {
-					states.putAll(getInstanceClustersStates(instanceInfo.getApplicationId(), cluster));
-				}
-			}
-		}
-		return states;
-	}
-
-	@Override
-	public Map<String, String> getClustersStates(String yarnApplicationId) {
-		HashMap<String, String> states = new HashMap<String, String>();
+	public Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId) {
+		HashMap<String, ClustersInfoReportData> states = new HashMap<String, ClustersInfoReportData>();
 		Collection<CloudAppInstanceInfo> submittedApplications = getApp(null, null, CloudAppType.STREAM).getSubmittedApplications(yarnApplicationId);
 		for (CloudAppInstanceInfo instanceInfo : submittedApplications) {
 			if (instanceInfo.getName().startsWith("scdstream:app") && instanceInfo.getState().equals("RUNNING")) {
@@ -213,12 +200,12 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 		getApp(null, null, CloudAppType.STREAM).destroyCluster(ConverterUtils.toApplicationId(yarnApplicationId), clusterId);
 	}
 
-	private Map<String, String> getInstanceClustersStates(String yarnApplicationId, String clusterId) {
-		HashMap<String, String> states = new HashMap<String, String>();
+	private Map<String, ClustersInfoReportData> getInstanceClustersStates(String yarnApplicationId, String clusterId) {
+		HashMap<String, ClustersInfoReportData> states = new HashMap<String, ClustersInfoReportData>();
 		List<ClustersInfoReportData> clusterInfo = getApp(null, null, CloudAppType.STREAM)
 				.getClusterInfo(ConverterUtils.toApplicationId(yarnApplicationId), clusterId);
 		if (clusterInfo.size() == 1) {
-			states.put(clusterId, clusterInfo.get(0).getState());
+			states.put(clusterId, clusterInfo.get(0));
 		}
 		return states;
 	}

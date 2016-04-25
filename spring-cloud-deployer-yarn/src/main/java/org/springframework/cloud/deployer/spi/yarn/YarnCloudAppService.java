@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.io.Resource;
+import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 /**
  * Interface used to glue a state machine and yarn application logic together.
@@ -123,19 +124,10 @@ public interface YarnCloudAppService {
 	 * yarn container cluster id and its state known by application master
 	 * using container clusters.
 	 *
-	 * @return the clusters states
-	 */
-	Map<String, String> getClustersStates();
-
-	/**
-	 * Gets the clusters states. Returned map has a mapping between
-	 * yarn container cluster id and its state known by application master
-	 * using container clusters.
-	 *
 	 * @param yarnApplicationId the yarn application id
 	 * @return the clusters states
 	 */
-	Map<String, String> getClustersStates(String yarnApplicationId);
+	Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId);
 
 	/**
 	 * Gets the clusters.
