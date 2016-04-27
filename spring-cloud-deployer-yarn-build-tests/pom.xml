@@ -136,7 +136,7 @@
 								</property>
 								<property>
 									<name>artifactVersion</name>
-									<value>${spring-cloud-stream-modules.artifact.version}</value>
+									<value>1.0.0.BUILD-SNAPSHOT</value>
 								</property>
 							</properties>
 						</configuration>
