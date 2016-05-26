@@ -16,255 +16,99 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
-import java.io.IOException;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInstanceInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppType;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateContext;
-import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.action.Action;
-import org.springframework.statemachine.config.StateMachineBuilder;
-import org.springframework.statemachine.config.StateMachineBuilder.Builder;
 import org.springframework.statemachine.guard.Guard;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
- * Class keeping all {@link StateMachine} logic in one place and is used
- * to dynamically build a machine.
+ * Statemachine for app deployments.
  *
  * @author Janne Valkealahti
+ *
  */
-public class AppDeployerStateMachine {
+public class AppDeployerStateMachine extends AbstractDeployerStateMachine {
 
 	private static final Logger logger = LoggerFactory.getLogger(AppDeployerStateMachine.class);
-	static final String VAR_ERROR = "error";
-	static final String VAR_APP_VERSION = "appVersion";
-	static final String VAR_APPLICATION_ID = "applicationId";
-	static final String HEADER_APP_VERSION = "appVersion";
-	static final String HEADER_CLUSTER_ID = "clusterId";
-	static final String HEADER_ARTIFACT = "artifact";
-	static final String HEADER_ARTIFACT_DIR = "artifactDir";
-	static final String HEADER_GROUP_ID = "groupId";
-	static final String HEADER_APPLICATION_ID = "applicationId";
-	static final String HEADER_COUNT = "count";
-	static final String HEADER_DEFINITION_PARAMETERS = "definitionParameters";
-	static final String HEADER_CONTEXT_RUN_ARGS = "contextRunArgs";
-	static final String HEADER_ERROR = "error";
 
-	private final YarnCloudAppService yarnCloudAppService;
-	private final TaskExecutor taskExecutor;
-	private final BeanFactory beanFactory;
+	private final static String MODEL_LOCATION = "classpath:appdeployer-model.uml";
+
+	public final static String EVENT_DEPLOY = "DEPLOY";
+	public final static String EVENT_UNDEPLOY = "UNDEPLOY";
+
+	public static final String VAR_INSTANCE_ADDRESS = "instanceAddress";
+	public static final String VAR_COUNT = "count";
+	public static final String VAR_APPNAME = "appname";
+	public static final String VAR_CLUSTER_ID = "clusterId";
+	public static final String VAR_DEFINITION_PARAMETERS = "definitionParameters";
+
+	public static final String HEADER_CLUSTER_ID = "clusterId";
+	public static final String HEADER_COUNT = "count";
+	public static final String HEADER_DEFINITION_PARAMETERS = "definitionParameters";
 
 	/**
-	 * Instantiates a new yarn cloud app state machine.
+	 * Instantiates a new app deployer state machine.
 	 *
 	 * @param yarnCloudAppService the yarn cloud app service
 	 * @param taskExecutor the task executor
 	 * @param beanFactory the bean factory
+	 * @param resourceLoader the resource loader
 	 */
-	public AppDeployerStateMachine(YarnCloudAppService yarnCloudAppService, TaskExecutor taskExecutor, BeanFactory beanFactory) {
-		Assert.notNull(yarnCloudAppService, "YarnCloudAppService must be set");
-		Assert.notNull(taskExecutor, "TaskExecutor must be set");
-		this.yarnCloudAppService = yarnCloudAppService;
-		this.taskExecutor = taskExecutor;
-		this.beanFactory = beanFactory;
+	public AppDeployerStateMachine(YarnCloudAppService yarnCloudAppService, TaskExecutor taskExecutor, BeanFactory beanFactory,
+			ResourceLoader resourceLoader) {
+		super(yarnCloudAppService, taskExecutor, beanFactory, resourceLoader, MODEL_LOCATION);
 	}
 
-	/**
-	 * Builds the state machine and instructs it to start automatically.
-	 *
-	 * @return the state machine
-	 * @throws Exception the exception
-	 */
-	public StateMachine<States, Events> buildStateMachine() throws Exception {
-		return buildStateMachine(true);
+	@Override
+	protected Map<String, Action<String, String>> getRegisteredActions() {
+		HashMap<String, Action<String, String>> actions = new HashMap<>();
+		actions.put("resetVariablesAction", new ResetVariablesAction());
+		actions.put("deployAction", new DeployAction());
+		actions.put("checkAppAction", new CheckAppAction(CloudAppType.STREAM));
+		actions.put("pushAppAction", new PushAppAction(CloudAppType.STREAM));
+		actions.put("checkInstanceAction", new CheckInstanceAction());
+		actions.put("pushArtifactAction", new PushArtifactAction());
+		actions.put("startInstanceAction", new StartInstanceAction());
+		actions.put("waitInstanceAction", new WaitInstanceAction());
+		actions.put("resolveInstanceAction", new ResolveInstanceAction());
+		actions.put("createClusterAction", new CreateClusterAction());
+		actions.put("startClusterAction", new StartClusterAction());
+		actions.put("stopClusterAction", new StopClusterAction());
+		actions.put("destroyClusterAction", new DestroyClusterAction());
+		actions.put("errorHandlingAction", new ErrorAction());
+		return actions;
 	}
 
-	/**
-	 * Builds the state machine.
-	 *
-	 * @param autoStartup the auto startup
-	 * @return the state machine
-	 * @throws Exception the exception
-	 */
-	public StateMachine<States, Events> buildStateMachine(boolean autoStartup) throws Exception {
-		Builder<States, Events> builder = StateMachineBuilder.builder();
-
-		builder.configureConfiguration()
-			.withConfiguration()
-				.autoStartup(autoStartup)
-				.taskExecutor(taskExecutor)
-				.beanFactory(beanFactory);
-
-		builder.configureStates()
-			.withStates()
-				.initial(States.READY)
-				.state(States.ERROR)
-				.state(States.DEPLOYMODULE, new ResetVariablesAction(), null)
-				.state(States.DEPLOYMODULE, Events.DEPLOY, Events.UNDEPLOY)
-				.state(States.UNDEPLOYMODULE, new ResetVariablesAction(), null)
-				.state(States.UNDEPLOYMODULE, Events.DEPLOY, Events.UNDEPLOY)
-				.and()
-				.withStates()
-					.parent(States.DEPLOYMODULE)
-					.initial(States.CHECKAPP)
-					.state(States.CHECKAPP, new CheckAppAction(), null)
-					.choice(States.PUSHAPPCHOICE)
-					.state(States.PUSHAPP, new PushAppAction(), null)
-					.state(States.CHECKINSTANCE, new CheckInstanceAction(), null)
-					.choice(States.STARTINSTANCECHOICE)
-					.state(States.STARTINSTANCE, new StartInstanceAction(), null)
-					.state(States.PUSHARTIFACT, new PushArtifactAction(), null)
-					.state(States.CREATECLUSTER, new CreateClusterAction(), null)
-					.state(States.STARTCLUSTER, new StartClusterAction(), null)
-					.and()
-				.withStates()
-					.parent(States.UNDEPLOYMODULE)
-					.initial(States.STOPCLUSTER)
-					.state(States.STOPCLUSTER, new StopClusterAction(), null)
-					.state(States.DESTROYCLUSTER, new DestroyClusterAction(), null);
-
-		builder.configureTransitions()
-			.withExternal()
-				.source(States.DEPLOYMODULE).target(States.ERROR)
-				.event(Events.ERROR)
-				.and()
-			.withExternal()
-				.source(States.DEPLOYMODULE).target(States.READY)
-				.event(Events.CONTINUE)
-				.and()
-			.withExternal()
-				.source(States.UNDEPLOYMODULE).target(States.READY)
-				.event(Events.CONTINUE)
-				.and()
-			.withExternal()
-				.source(States.STARTCLUSTER).target(States.READY)
-				.and()
-			.withExternal()
-				.source(States.READY).target(States.DEPLOYMODULE)
-				.event(Events.DEPLOY)
-				.and()
-			.withExternal()
-				.source(States.READY).target(States.UNDEPLOYMODULE)
-				.event(Events.UNDEPLOY)
-				.and()
-			.withExternal()
-				.source(States.CHECKAPP).target(States.PUSHAPPCHOICE)
-				.and()
-			.withChoice()
-				.source(States.PUSHAPPCHOICE)
-				.first(States.PUSHAPP, new PushAppGuard())
-				.last(States.CHECKINSTANCE)
-				.and()
-			.withExternal()
-				.source(States.PUSHAPP).target(States.CHECKINSTANCE)
-				.and()
-			.withExternal()
-				.source(States.CHECKINSTANCE).target(States.STARTINSTANCECHOICE)
-				.and()
-			.withChoice()
-				.source(States.STARTINSTANCECHOICE)
-				.first(States.STARTINSTANCE, new StartInstanceGuard())
-				.last(States.PUSHARTIFACT)
-				.and()
-			.withExternal()
-				.source(States.STARTINSTANCE).target(States.PUSHARTIFACT)
-				.and()
-			.withExternal()
-				.source(States.PUSHARTIFACT).target(States.CREATECLUSTER)
-				.and()
-			.withExternal()
-				.source(States.CREATECLUSTER).target(States.STARTCLUSTER)
-				.and()
-			.withExternal()
-				.source(States.STOPCLUSTER).target(States.DESTROYCLUSTER);
-
-		return builder.build();
-	}
-
-	/**
-	 * {@link Action} which clears existing extended state variables.
-	 */
-	private class ResetVariablesAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
-			context.getExtendedState().getVariables().clear();
-		}
-	}
-
-	/**
-	 * {@link Action} which queries {@link YarnCloudAppService} and checks if
-	 * passed {@code appVersion} from event headers exists and sends {@code ERROR}
-	 * event into state machine if it doesn't exist. Add to be used {@code appVersion}
-	 * into extended state variables which later used by other guards and actions.
-	 */
-	private class CheckAppAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-
-			if (!StringUtils.hasText(appVersion)) {
-				context.getStateMachine().sendEvent(
-						MessageBuilder.withPayload(Events.ERROR).setHeader(HEADER_ERROR, "appVersion not defined")
-								.build());
-			} else {
-				Collection<CloudAppInfo> appInfos = yarnCloudAppService.getApplications(CloudAppType.STREAM);
-				for (CloudAppInfo appInfo : appInfos) {
-					if (appInfo.getName().equals(appVersion)) {
-						context.getExtendedState().getVariables().put(VAR_APP_VERSION, appVersion);
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * {@link Guard} which is used to protect state where application push
-	 * into hdfs would happen. Assumes that if {@code appVersion} variable
-	 * exists, application is installed.
-	 */
-	private class PushAppGuard implements Guard<States, Events> {
-
-		@Override
-		public boolean evaluate(StateContext<States, Events> context) {
-			return !context.getExtendedState().getVariables().containsKey(VAR_APP_VERSION);
-		}
-	}
-
-	/**
-	 * {@link Action} which pushes application version into hdfs found
-	 * from variable {@code appVersion}.
-	 */
-	private class PushAppAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-			yarnCloudAppService.pushApplication(appVersion, CloudAppType.STREAM);
-		}
+	@Override
+	protected Map<String, Guard<String, String>> getRegisteredGuards() {
+		HashMap<String, Guard<String, String>> guards = new HashMap<>();
+		guards.put("pushAppGuard", new PushAppGuard());
+		guards.put("startInstanceGuard", new StartInstanceGuard());
+		guards.put("errorGuard", new ErrorGuard());
+		guards.put("instanceGuard", new InstanceGuard());
+		return guards;
 	}
 
 	/**
 	 * {@link Action} which queries {@link YarnCloudAppService} for existing
 	 * running instances.
 	 */
-	private class CheckInstanceAction implements Action<States, Events> {
+	private class CheckInstanceAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
 			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
 			String groupId = (String) context.getMessageHeader(HEADER_GROUP_ID);
 			String appName = "scdstream:" + appVersion + ":" + groupId;
@@ -276,8 +120,8 @@ public class AppDeployerStateMachine {
 	}
 
 	private CloudAppInstanceInfo findRunningInstance(String appName) {
-		for (CloudAppInstanceInfo appInstanceInfo : yarnCloudAppService.getInstances(CloudAppType.STREAM)) {
-			logger.info("Checking instance {}", appInstanceInfo);
+		for (CloudAppInstanceInfo appInstanceInfo : getYarnCloudAppService().getInstances(CloudAppType.STREAM)) {
+			logger.info("Checking instance {} for appName {}", appInstanceInfo, appName);
 			if (appInstanceInfo.getName().equals(appName) && appInstanceInfo.getState().equals("RUNNING")
 					&& appInstanceInfo.getAddress().contains("http")) {
 				logger.info("Using instance {}", appInstanceInfo);
@@ -287,213 +131,121 @@ public class AppDeployerStateMachine {
 		return null;
 	}
 
-	/**
-	 * {@link Guard} which protects state {@code STARTINSTANCE} in choice state
-	 * {@code STARTINSTANCECHOICE}.
-	 */
-	private class StartInstanceGuard implements Guard<States, Events> {
+	private class StartInstanceAction implements Action<String, String> {
 
 		@Override
-		public boolean evaluate(StateContext<States, Events> context) {
-			return !context.getExtendedState().getVariables().containsKey(VAR_APPLICATION_ID);
-		}
-	}
-
-	/**
-	 * {@link Action} which launches new application instance.
-	 */
-	private class StartInstanceAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
 			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-			String groupId = (String) context.getMessageHeader(HEADER_GROUP_ID);
-			String appName = "scdstream:" + appVersion + ":" + groupId;
 
 			// we control type so casting is safe
 			@SuppressWarnings("unchecked")
 			List<String> contextRunArgs = (List<String>) context.getMessageHeader(HEADER_CONTEXT_RUN_ARGS);
-			String applicationId = yarnCloudAppService.submitApplication(appVersion, CloudAppType.STREAM, contextRunArgs);
+			String applicationId = getYarnCloudAppService().submitApplication(appVersion, CloudAppType.STREAM, contextRunArgs);
 			context.getExtendedState().getVariables().put(VAR_APPLICATION_ID, applicationId);
-
-			// TODO: for now just loop until we get proper handling
-			//       via looping in a state machine itself.
-			Exception error = null;
-			for (int i = 0; i < 60; i++) {
-				try {
-					CloudAppInstanceInfo appInstanceInfo = findRunningInstance(appName);
-					if (appInstanceInfo != null && appInstanceInfo.getApplicationId().equals(applicationId)) {
-						return;
-					} else {
-						Thread.sleep(1000);
-					}
-				}
-				catch (InterruptedException e) {
-					error = e;
-					Thread.currentThread().interrupt();
-					break;
-				}
-				catch (Exception e) {
-					error = e;
-					break;
-				}
-			}
-			// TODO: we don't yet handle errors
-			if (error != null) {
-				context.getStateMachine().sendEvent(
-						MessageBuilder.withPayload(Events.ERROR)
-								.setHeader(HEADER_ERROR, "failed starting app " + error).build());
-			}
 		}
-
 	}
 
-	private class PushArtifactAction implements Action<States, Events> {
+	private class WaitInstanceAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
-			String artifactDir = (String) context.getMessageHeader(HEADER_ARTIFACT_DIR);
-			if (!isHdfsResource(artifact)) {
-				yarnCloudAppService.pushArtifact(artifact, artifactDir);
-			} else {
-				if (!artifact.exists()) {
-					context.getExtendedState().getVariables().put(VAR_ERROR, new RuntimeException("hdfs artifact missing"));
-				}
+		public void execute(StateContext<String, String> context) {
+			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
+			String groupId = (String) context.getMessageHeader(HEADER_GROUP_ID);
+			if (StringUtils.hasText(appVersion) && StringUtils.hasText(groupId)) {
+				String appName = "scdstream:" + appVersion + ":" + groupId;
+				context.getExtendedState().getVariables().put(VAR_APPNAME, appName);
 			}
 		}
 	}
 
-	private boolean isHdfsResource(Resource resource) {
-		try {
-			return resource != null && resource.getURI().getScheme().equals("hdfs");
-		} catch (IOException e) {
-			return false;
+	private class ResolveInstanceAction implements Action<String, String> {
+
+		@Override
+		public void execute(StateContext<String, String> context) {
+			String appName = context.getExtendedState().get(VAR_APPNAME, String.class);
+			String applicationId = context.getExtendedState().get(VAR_APPLICATION_ID, String.class);
+			CloudAppInstanceInfo appInstanceInfo = findRunningInstance(appName);
+			if (appInstanceInfo != null && appInstanceInfo.getApplicationId().equals(applicationId)) {
+				context.getExtendedState().getVariables().put(VAR_INSTANCE_ADDRESS, appInstanceInfo.getAddress());
+			}
 		}
 	}
 
-	/**
-	 * {@link Action} which creates a new container cluster.
-	 */
-	private class CreateClusterAction implements Action<States, Events> {
+	private class CreateClusterAction implements Action<String, String> {
 
 		@SuppressWarnings("unchecked")
 		@Override
-		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
-			yarnCloudAppService.createCluster(context.getExtendedState().get(VAR_APPLICATION_ID, String.class), context
-					.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class),
-					context.getMessageHeaders().get(HEADER_COUNT, Integer.class),
+		public void execute(StateContext<String, String> context) {
+			Resource artifact = context.getExtendedState().get(VAR_ARTIFACT, Resource.class);
+			getYarnCloudAppService().createCluster(
+					context.getExtendedState().get(VAR_APPLICATION_ID, String.class),
+					context.getExtendedState().get(HEADER_CLUSTER_ID, String.class),
+					context.getExtendedState().get(VAR_COUNT, Integer.class),
 					artifact != null ? artifact.getFilename() : null,
-					context.getMessageHeaders().get(HEADER_DEFINITION_PARAMETERS, Map.class));
+					context.getExtendedState().get(HEADER_DEFINITION_PARAMETERS, Map.class));
 		}
 	}
 
-	/**
-	 * {@link Action} which starts existing container cluster.
-	 */
-	private class StartClusterAction implements Action<States, Events> {
+	private class StartClusterAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
-			yarnCloudAppService.startCluster(context.getExtendedState().get(VAR_APPLICATION_ID, String.class), context
-					.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class));
+		public void execute(StateContext<String, String> context) {
+			getYarnCloudAppService().startCluster(context.getExtendedState().get(VAR_APPLICATION_ID, String.class), context
+					.getExtendedState().get(HEADER_CLUSTER_ID, String.class));
 		}
 	}
 
-	/**
-	 * {@link Action} which stops existing container cluster.
-	 */
-	private class StopClusterAction implements Action<States, Events> {
+	private class DeployAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
+			Integer count = context.getMessageHeaders().get(HEADER_COUNT, Integer.class);
+			String clusterId = context.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class);
+			Map<?, ?> definitionParameters = context.getMessageHeaders().get(HEADER_DEFINITION_PARAMETERS, Map.class);
+			Resource artifact = context.getMessageHeaders().get(HEADER_ARTIFACT, Resource.class);
+			context.getExtendedState().getVariables().put(VAR_COUNT, count != null ? count : 1);
+			context.getExtendedState().getVariables().put(VAR_CLUSTER_ID, clusterId);
+			context.getExtendedState().getVariables().put(VAR_DEFINITION_PARAMETERS, definitionParameters);
+			if (artifact != null) {
+				context.getExtendedState().getVariables().put(VAR_ARTIFACT, artifact);
+			}
+			context.getExtendedState().getVariables().put(VAR_MESSAGE_ID, context.getMessageHeaders().getId().toString());
+		}
+	}
+
+	private class StartInstanceGuard implements Guard<String, String> {
+
+		@Override
+		public boolean evaluate(StateContext<String, String> context) {
+			return !context.getExtendedState().getVariables().containsKey(VAR_APPLICATION_ID);
+		}
+	}
+
+	private class StopClusterAction implements Action<String, String> {
+
+		@Override
+		public void execute(StateContext<String, String> context) {
 			String clusterId = context.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class);
 			String applicationId = (String) context.getMessageHeader(HEADER_APPLICATION_ID);
-			yarnCloudAppService.stopCluster(applicationId, clusterId);
+			getYarnCloudAppService().stopCluster(applicationId, clusterId);
 		}
 	}
 
-	/**
-	 * {@link Action} which destroys existing container cluster.
-	 */
-	private class DestroyClusterAction implements Action<States, Events> {
+	private class DestroyClusterAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
 			String clusterId = context.getMessageHeaders().get(HEADER_CLUSTER_ID, String.class);
 			String applicationId = (String) context.getMessageHeader(HEADER_APPLICATION_ID);
-			yarnCloudAppService.destroyCluster(applicationId, clusterId);
-			context.getStateMachine().sendEvent(Events.CONTINUE);
+			getYarnCloudAppService().destroyCluster(applicationId, clusterId);
 		}
 	}
 
-	/**
-	 * Enumeration of module handling states.
-	 */
-	public enum States {
+	private class InstanceGuard implements Guard<String, String> {
 
-		/** Main state where machine is ready for either deploy or undeploy requests. */
-		READY,
-
-		/** State where possible errors are handled. */
-		ERROR,
-
-		/** Super state of all other states handling deployment. */
-		DEPLOYMODULE,
-
-		/** State where app presence in hdfs is checked. */
-		CHECKAPP,
-
-		/** Pseudostate where choice to enter {@code PUSHAPP} is made. */
-		PUSHAPPCHOICE,
-
-		/** State where application is pushed into hdfs. */
-		PUSHAPP,
-
-		/** State where app instance running status is checked. */
-		CHECKINSTANCE,
-
-		/** Pseudostate where choice to enter {@code STARTINSTANCE} is made. */
-		STARTINSTANCECHOICE,
-
-		/** State where app instance is started. */
-		STARTINSTANCE,
-
-		PUSHARTIFACT,
-
-		/** State where container cluster is created. */
-		CREATECLUSTER,
-
-		/** State where container cluster is started. */
-		STARTCLUSTER,
-
-		/** Super state of all other states handling undeployment. */
-		UNDEPLOYMODULE,
-
-		/** State where container cluster is stopped. */
-		STOPCLUSTER,
-
-		/** State where container cluster is destroyed. */
-		DESTROYCLUSTER;
+		@Override
+		public boolean evaluate(StateContext<String, String> context) {
+			return context.getExtendedState().getVariables().containsKey(VAR_INSTANCE_ADDRESS);
+		}
 	}
-
-	/**
-	 * Enumeration of module handling events.
-	 */
-	public enum Events {
-
-		/** Event indicating that machine should handle deploy request. */
-		DEPLOY,
-
-		/** Event indicating that machine should handle undeploy request. */
-		UNDEPLOY,
-
-		/** Event indicating that machine should move into error handling logic. */
-		ERROR,
-
-		/** Event indicating that machine should move back into ready state. */
-		CONTINUE
-	}
-
 }

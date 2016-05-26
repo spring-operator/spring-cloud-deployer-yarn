@@ -16,368 +16,109 @@
 
 package org.springframework.cloud.deployer.spi.yarn;
 
-import java.io.IOException;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppType;
-import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateContext;
-import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.action.Action;
-import org.springframework.statemachine.config.StateMachineBuilder;
-import org.springframework.statemachine.config.StateMachineBuilder.Builder;
 import org.springframework.statemachine.guard.Guard;
-import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 /**
- * Class keeping all {@link StateMachine} logic in one place and is used
- * to dynamically build a machine.
+ * Statemachine for task launching.
  *
  * @author Janne Valkealahti
+ *
  */
-public class TaskLauncherStateMachine {
+public class TaskLauncherStateMachine extends AbstractDeployerStateMachine {
 
 	private static final Logger logger = LoggerFactory.getLogger(TaskLauncherStateMachine.class);
-	static final String VAR_ERROR = "error";
-	static final String VAR_APP_VERSION = "appVersion";
-	static final String VAR_APPLICATION_ID = "applicationId";
-	static final String HEADER_APP_VERSION = "appVersion";
-	static final String HEADER_APP_NAME = "appName";
-	static final String HEADER_ARTIFACT = "artifact";
-	static final String HEADER_ARTIFACT_DIR = "artifactDir";
-	static final String HEADER_APPLICATION_ID = "applicationId";
-	static final String HEADER_DEFINITION_PARAMETERS = "definitionParameters";
-	static final String HEADER_CONTEXT_RUN_ARGS = "contextRunArgs";
-	static final String HEADER_ERROR = "error";
+	private final static String MODEL_LOCATION = "classpath:tasklauncher-model.uml";
 
-	private final YarnCloudAppService yarnCloudAppService;
-	private final TaskExecutor taskExecutor;
-	private final BeanFactory beanFactory;
+	public final static String EVENT_LAUNCH = "LAUNCH";
+	public final static String EVENT_CANCEL = "CANCEL";
 
 	/**
-	 * Instantiates a new yarn cloud app state machine.
+	 * Instantiates a new task launcher state machine.
 	 *
 	 * @param yarnCloudAppService the yarn cloud app service
 	 * @param taskExecutor the task executor
 	 * @param beanFactory the bean factory
+	 * @param resourceLoader the resource loader
 	 */
-	public TaskLauncherStateMachine(YarnCloudAppService yarnCloudAppService, TaskExecutor taskExecutor, BeanFactory beanFactory) {
-		Assert.notNull(yarnCloudAppService, "YarnCloudAppService must be set");
-		Assert.notNull(taskExecutor, "TaskExecutor must be set");
-		this.yarnCloudAppService = yarnCloudAppService;
-		this.taskExecutor = taskExecutor;
-		this.beanFactory = beanFactory;
+	public TaskLauncherStateMachine(YarnCloudAppService yarnCloudAppService, TaskExecutor taskExecutor, BeanFactory beanFactory,
+			ResourceLoader resourceLoader) {
+		super(yarnCloudAppService, taskExecutor, beanFactory, resourceLoader, MODEL_LOCATION);
 	}
 
-	/**
-	 * Builds the state machine and instructs it to start automatically.
-	 *
-	 * @return the state machine
-	 * @throws Exception the exception
-	 */
-	public StateMachine<States, Events> buildStateMachine() throws Exception {
-		return buildStateMachine(true);
+	@Override
+	protected Map<String, Action<String, String>> getRegisteredActions() {
+		HashMap<String, Action<String, String>> actions = new HashMap<>();
+		actions.put("resetVariablesAction", new ResetVariablesAction());
+		actions.put("launchAction", new LaunchAction());
+		actions.put("cancelAction", new CancelAction());
+		actions.put("checkAppAction", new CheckAppAction(CloudAppType.TASK));
+		actions.put("pushAppAction", new PushAppAction(CloudAppType.TASK));
+		actions.put("pushArtifactAction", new PushArtifactAction());
+		actions.put("startAppAction", new StartAppAction());
+		actions.put("stopAppAction", new StopAppAction());
+		actions.put("errorHandlingAction", new ErrorAction());
+		return actions;
 	}
 
-	/**
-	 * Builds the state machine.
-	 *
-	 * @param autoStartup the auto startup
-	 * @return the state machine
-	 * @throws Exception the exception
-	 */
-	public StateMachine<States, Events> buildStateMachine(boolean autoStartup) throws Exception {
-		Builder<States, Events> builder = StateMachineBuilder.builder();
-
-		builder.configureConfiguration()
-			.withConfiguration()
-				.autoStartup(autoStartup)
-				.taskExecutor(taskExecutor)
-				.beanFactory(beanFactory);
-
-		builder.configureStates()
-			.withStates()
-				.initial(States.READY)
-				.state(States.ERROR)
-				.state(States.DEPLOYMODULE, new ResetVariablesAction(), null)
-				.state(States.DEPLOYMODULE, Events.DEPLOY, Events.UNDEPLOY)
-				.state(States.UNDEPLOYMODULE, new ResetVariablesAction(), null)
-				.state(States.UNDEPLOYMODULE, Events.DEPLOY, Events.UNDEPLOY)
-				.and()
-				.withStates()
-					.parent(States.DEPLOYMODULE)
-					.initial(States.CHECKAPP)
-					.state(States.CHECKAPP, new CheckAppAction(), null)
-					.choice(States.PUSHAPPCHOICE)
-					.state(States.PUSHAPP, new PushAppAction(), null)
-					.state(States.PUSHARTIFACT, new PushArtifactAction(), null)
-					.state(States.STARTINSTANCE, new StartInstanceAction(), null)
-					.choice(States.DEPLOYEXITCHOICE)
-					.state(States.DEPLOYEXITERROR)
-					.state(States.DEPLOYEXITREADY)
-					.and()
-				.withStates()
-					.parent(States.UNDEPLOYMODULE)
-					.initial(States.STOPINSTANCE)
-					.state(States.STOPINSTANCE, new StopInstanceAction(), null);
-
-		builder.configureTransitions()
-			.withExternal()
-				.source(States.DEPLOYMODULE).target(States.ERROR)
-				.event(Events.ERROR)
-				.and()
-			.withExternal()
-				.source(States.DEPLOYMODULE).target(States.READY)
-				.event(Events.CONTINUE)
-				.and()
-			.withExternal()
-				.source(States.UNDEPLOYMODULE).target(States.READY)
-				.event(Events.CONTINUE)
-				.and()
-			.withExternal()
-				.source(States.STARTINSTANCE).target(States.DEPLOYEXITCHOICE)
-				.and()
-			.withExternal()
-				.source(States.STOPINSTANCE).target(States.READY)
-				.and()
-			.withExternal()
-				.source(States.READY).target(States.DEPLOYMODULE)
-				.event(Events.DEPLOY)
-				.and()
-			.withExternal()
-				.source(States.READY).target(States.UNDEPLOYMODULE)
-				.event(Events.UNDEPLOY)
-				.and()
-			.withExternal()
-				.source(States.CHECKAPP).target(States.PUSHAPPCHOICE)
-				.and()
-			.withChoice()
-				.source(States.PUSHAPPCHOICE)
-				.first(States.PUSHAPP, new PushAppGuard())
-				.last(States.PUSHARTIFACT)
-				.and()
-			.withExternal()
-				.source(States.PUSHARTIFACT).target(States.STARTINSTANCE)
-				.and()
-			.withExternal()
-				.source(States.PUSHAPP).target(States.PUSHARTIFACT)
-				.and()
-			.withChoice()
-				.source(States.DEPLOYEXITCHOICE)
-				.first(States.DEPLOYEXITERROR, new ExitDeployGuard())
-				.last(States.DEPLOYEXITREADY)
-				.and()
-			.withExternal()
-				.source(States.DEPLOYEXITERROR).target(States.ERROR)
-				.and()
-			.withExternal()
-				.source(States.DEPLOYEXITREADY).target(States.READY)
-				.and()
-			.withExternal()
-				.source(States.ERROR).target(States.READY);
-
-		return builder.build();
+	@Override
+	protected Map<String, Guard<String, String>> getRegisteredGuards() {
+		HashMap<String, Guard<String, String>> guards = new HashMap<>();
+		guards.put("pushAppGuard", new PushAppGuard());
+		guards.put("errorGuard", new ErrorGuard());
+		return guards;
 	}
 
-	/**
-	 * {@link Action} which clears existing extended state variables.
-	 */
-	private class ResetVariablesAction implements Action<States, Events> {
+	private class LaunchAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
-			context.getExtendedState().getVariables().clear();
+		public void execute(StateContext<String, String> context) {
+			context.getExtendedState().getVariables().put(VAR_MESSAGE_ID, context.getMessageHeaders().getId().toString());
 		}
 	}
 
-	/**
-	 * {@link Action} which queries {@link YarnCloudAppService} and checks if
-	 * passed {@code appVersion} from event headers exists and sends {@code ERROR}
-	 * event into state machine if it doesn't exist. Add to be used {@code appVersion}
-	 * into extended state variables which later used by other guards and actions.
-	 */
-	private class CheckAppAction implements Action<States, Events> {
+	private class CancelAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-
-			if (!StringUtils.hasText(appVersion)) {
-				context.getStateMachine().sendEvent(
-						MessageBuilder.withPayload(Events.ERROR).setHeader(HEADER_ERROR, "appVersion not defined")
-								.build());
-			} else {
-				Collection<CloudAppInfo> appInfos = yarnCloudAppService.getApplications(CloudAppType.TASK);
-				for (CloudAppInfo appInfo : appInfos) {
-					if (appInfo.getName().equals(appVersion)) {
-						context.getExtendedState().getVariables().put(VAR_APP_VERSION, appVersion);
-					}
-				}
-			}
+		public void execute(StateContext<String, String> context) {
+			context.getExtendedState().getVariables().put(VAR_MESSAGE_ID, context.getMessageHeaders().getId().toString());
 		}
 	}
 
-	/**
-	 * {@link Guard} which is used to protect state where application push
-	 * into hdfs would happen. Assumes that if {@code appVersion} variable
-	 * exists, application is installed.
-	 */
-	private class PushAppGuard implements Guard<States, Events> {
+	private class StartAppAction implements Action<String, String> {
 
 		@Override
-		public boolean evaluate(StateContext<States, Events> context) {
-			return !context.getExtendedState().getVariables().containsKey(VAR_APP_VERSION);
-		}
-	}
-
-	private class ExitDeployGuard implements Guard<States, Events> {
-
-		@Override
-		public boolean evaluate(StateContext<States, Events> context) {
-			return context.getExtendedState().getVariables().containsKey(VAR_ERROR);
-		}
-	}
-
-	/**
-	 * {@link Action} which pushes application version into hdfs found
-	 * from variable {@code appVersion}.
-	 */
-	private class PushAppAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
-			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
-			yarnCloudAppService.pushApplication(appVersion, CloudAppType.TASK);
-		}
-	}
-
-	private class PushArtifactAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
-			Resource artifact = (Resource) context.getMessageHeader(HEADER_ARTIFACT);
-			String artifactDir = (String) context.getMessageHeader(HEADER_ARTIFACT_DIR);
-			if (!isHdfsResource(artifact)) {
-				yarnCloudAppService.pushArtifact(artifact, artifactDir);
-			} else {
-				if (!artifact.exists()) {
-					context.getExtendedState().getVariables().put(VAR_ERROR, new RuntimeException("hdfs artifact missing"));
-				}
-			}
-		}
-	}
-
-	private boolean isHdfsResource(Resource resource) {
-		try {
-			return resource != null && resource.getURI().getScheme().equals("hdfs");
-		} catch (IOException e) {
-			return false;
-		}
-	}
-
-	/**
-	 * {@link Action} which launches new application instance.
-	 */
-	private class StartInstanceAction implements Action<States, Events> {
-
-		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
 			String appVersion = (String) context.getMessageHeader(HEADER_APP_VERSION);
 
 			// we control type so casting is safe
 			@SuppressWarnings("unchecked")
 			List<String> contextRunArgs = (List<String>) context.getMessageHeader(HEADER_CONTEXT_RUN_ARGS);
 
-			String applicationId = yarnCloudAppService.submitApplication(appVersion, CloudAppType.TASK, contextRunArgs);
+			String applicationId = getYarnCloudAppService().submitApplication(appVersion, CloudAppType.TASK, contextRunArgs);
+			logger.info("New application id is {}", applicationId);
 			context.getExtendedState().getVariables().put(VAR_APPLICATION_ID, applicationId);
 		}
-
 	}
 
-	/**
-	 * {@link Action} which stops an application instance.
-	 */
-	private class StopInstanceAction implements Action<States, Events> {
+	private class StopAppAction implements Action<String, String> {
 
 		@Override
-		public void execute(StateContext<States, Events> context) {
+		public void execute(StateContext<String, String> context) {
 			String applicationId = (String) context.getMessageHeader(HEADER_APPLICATION_ID);
 			logger.info("Killing application {}", applicationId);
-			yarnCloudAppService.killApplication(applicationId, CloudAppType.TASK);
+			getYarnCloudAppService().killApplication(applicationId, CloudAppType.TASK);
 		}
 	}
-
-	/**
-	 * Enumeration of module handling states.
-	 */
-	public enum States {
-
-		/** Main state where machine is ready for either deploy or undeploy requests. */
-		READY,
-
-		/** State where possible errors are handled. */
-		ERROR,
-
-		/** Super state of all other states handling deployment. */
-		DEPLOYMODULE,
-
-		/** State where app presence in hdfs is checked. */
-		CHECKAPP,
-
-		/** Pseudostate where choice to enter {@code PUSHAPP} is made. */
-		PUSHAPPCHOICE,
-
-		/** State where application is pushed into hdfs. */
-		PUSHAPP,
-
-		/** State where artifact is pushed into hdfs. */
-		PUSHARTIFACT,
-
-		/** State where app instance is started. */
-		STARTINSTANCE,
-
-		/** Pseudostate where choice to exit either ready or error is made. */
-		DEPLOYEXITCHOICE,
-
-		/** Temporary intermediate state to exit into ready from choice */
-		// TODO: bug is ssm
-		DEPLOYEXITREADY,
-
-		/** Temporary intermediate state to exit into error from choice */
-		// TODO: bug is ssm
-		DEPLOYEXITERROR,
-
-		/** Super state of all other states handling undeployment. */
-		UNDEPLOYMODULE,
-
-		/** State where app instance is stopped. */
-		STOPINSTANCE;
-	}
-
-	/**
-	 * Enumeration of module handling events.
-	 */
-	public enum Events {
-
-		/** Event indicating that machine should handle deploy request. */
-		DEPLOY,
-
-		/** Event indicating that machine should handle undeploy request. */
-		UNDEPLOY,
-
-		/** Event indicating that machine should move into error handling logic. */
-		ERROR,
-
-		/** Event indicating that machine should move back into ready state. */
-		CONTINUE
-	}
-
 }

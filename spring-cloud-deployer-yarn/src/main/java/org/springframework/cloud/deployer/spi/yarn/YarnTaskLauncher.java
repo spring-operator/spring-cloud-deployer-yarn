@@ -31,8 +31,6 @@ import org.springframework.cloud.deployer.spi.core.AppDeploymentRequest;
 import org.springframework.cloud.deployer.spi.task.LaunchState;
 import org.springframework.cloud.deployer.spi.task.TaskLauncher;
 import org.springframework.cloud.deployer.spi.task.TaskStatus;
-import org.springframework.cloud.deployer.spi.yarn.TaskLauncherStateMachine.Events;
-import org.springframework.cloud.deployer.spi.yarn.TaskLauncherStateMachine.States;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInstanceInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppType;
 import org.springframework.core.io.Resource;
@@ -44,6 +42,7 @@ import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.listener.StateMachineListener;
 import org.springframework.statemachine.listener.StateMachineListenerAdapter;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 import org.springframework.util.concurrent.SettableListenableFuture;
 
@@ -56,7 +55,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 
 	private static final Logger logger = LoggerFactory.getLogger(YarnTaskLauncher.class);
 	private final YarnCloudAppService yarnCloudAppService;
-	private final StateMachine<States, Events> stateMachine;
+	private final StateMachine<String, String> stateMachine;
 
 	/**
 	 * Instantiates a new yarn task module deployer.
@@ -64,7 +63,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 	 * @param yarnCloudAppService the yarn cloud app service
 	 * @param stateMachine the state machine
 	 */
-	public YarnTaskLauncher(YarnCloudAppService yarnCloudAppService, StateMachine<States, Events> stateMachine) {
+	public YarnTaskLauncher(YarnCloudAppService yarnCloudAppService, StateMachine<String, String> stateMachine) {
 		this.yarnCloudAppService = yarnCloudAppService;
 		this.stateMachine = stateMachine;
 	}
@@ -108,7 +107,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 			}
 		}
 
-		final Message<Events> message = MessageBuilder.withPayload(Events.DEPLOY)
+		final Message<String> message = MessageBuilder.withPayload(TaskLauncherStateMachine.EVENT_LAUNCH)
 				.setHeader(TaskLauncherStateMachine.HEADER_APP_VERSION, "app")
 				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT, resource)
 				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT_DIR, artifactPath)
@@ -119,18 +118,23 @@ public class YarnTaskLauncher implements TaskLauncher {
 		// setup future, listen event from machine and finally unregister listener,
 		// and set future value
 		final SettableListenableFuture<String> id = new SettableListenableFuture<>();
-		final StateMachineListener<States, Events> listener = new StateMachineListenerAdapter<States, Events>() {
+		final StateMachineListener<String, String> listener = new StateMachineListenerAdapter<String, String>() {
 
 			@Override
-			public void stateContext(StateContext<States, Events> stateContext) {
-				if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId() == States.READY) {
-					if (message.getHeaders().getId().equals(stateContext.getMessageHeaders().getId())) {
-						String applicationId = stateContext.getStateMachine().getExtendedState().get(TaskLauncherStateMachine.VAR_APPLICATION_ID, String.class);
-						DeploymentKey key = new DeploymentKey(name, applicationId);
-						id.set(key.toString());
+			public void stateContext(StateContext<String, String> stateContext) {
+				if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId().equals(TaskLauncherStateMachine.STATE_READY)) {
+					if (ObjectUtils.nullSafeEquals(message.getHeaders().getId().toString(),
+							stateContext.getExtendedState().get(TaskLauncherStateMachine.VAR_MESSAGE_ID, String.class))) {
+						Exception exception = stateContext.getExtendedState().get(TaskLauncherStateMachine.VAR_ERROR, Exception.class);
+						if (exception != null) {
+							id.setException(exception);
+						} else {
+							String applicationId = stateContext.getStateMachine().getExtendedState()
+									.get(TaskLauncherStateMachine.VAR_APPLICATION_ID, String.class);
+							DeploymentKey key = new DeploymentKey(name, applicationId);
+							id.set(key.toString());
+						}
 					}
-				} else if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId() == States.ERROR) {
-					id.setException(new RuntimeException());
 				}
 			}
 		};
@@ -150,8 +154,10 @@ public class YarnTaskLauncher implements TaskLauncher {
 		});
 
 		stateMachine.sendEvent(message);
+		// we need to block here until SPI supports
+		// returning id asynchronously
 		try {
-			return id.get(60, TimeUnit.SECONDS);
+			return id.get(2, TimeUnit.MINUTES);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -178,7 +184,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 	public void cancel(String id) {
 		logger.info("Undeploy request for task {}", id);
 		DeploymentKey key = new DeploymentKey(id);
-		Message<Events> message = MessageBuilder.withPayload(Events.UNDEPLOY)
+		Message<String> message = MessageBuilder.withPayload(TaskLauncherStateMachine.EVENT_CANCEL)
 				.setHeader(TaskLauncherStateMachine.HEADER_APPLICATION_ID, key.applicationId)
 				.build();
 		stateMachine.sendEvent(message);

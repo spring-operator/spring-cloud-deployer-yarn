@@ -17,9 +17,9 @@
 package org.springframework.cloud.dataflow.yarn.buildtests;
 
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertThat;
 
 import java.io.File;
@@ -50,6 +50,7 @@ import org.springframework.cloud.deployer.spi.yarn.YarnAppDeployer;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInstanceInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppType;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -486,10 +487,21 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 			return executor;
 		}
 
+//		@Bean
+//		public AppDeployerStateMachineDeprecated appDeployerStateMachine(YarnCloudAppService yarnCloudAppService,
+//				TaskExecutor appDeployer, BeanFactory beanFactory) throws Exception {
+//			return new AppDeployerStateMachineDeprecated(yarnCloudAppService, appDeployer, beanFactory);
+//		}
+//
+//		@Bean
+//		public AppDeployer appDeployer(YarnCloudAppService yarnCloudAppService,
+//				AppDeployerStateMachineDeprecated appDeployerStateMachine) throws Exception {
+//			return new YarnAppDeployer(yarnCloudAppService, appDeployerStateMachine.buildStateMachine());
+//		}
 		@Bean
 		public AppDeployerStateMachine appDeployerStateMachine(YarnCloudAppService yarnCloudAppService,
-				TaskExecutor appDeployer, BeanFactory beanFactory) throws Exception {
-			return new AppDeployerStateMachine(yarnCloudAppService, appDeployer, beanFactory);
+				TaskExecutor appDeployer, BeanFactory beanFactory, ApplicationContext applicationContext) throws Exception {
+			return new AppDeployerStateMachine(yarnCloudAppService, appDeployer, beanFactory, applicationContext);
 		}
 
 		@Bean

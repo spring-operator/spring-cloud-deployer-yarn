@@ -33,8 +33,6 @@ import org.springframework.cloud.deployer.spi.app.AppStatus.Builder;
 import org.springframework.cloud.deployer.spi.app.DeploymentState;
 import org.springframework.cloud.deployer.spi.core.AppDefinition;
 import org.springframework.cloud.deployer.spi.core.AppDeploymentRequest;
-import org.springframework.cloud.deployer.spi.yarn.AppDeployerStateMachine.Events;
-import org.springframework.cloud.deployer.spi.yarn.AppDeployerStateMachine.States;
 import org.springframework.core.io.Resource;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -64,7 +62,7 @@ public class YarnAppDeployer implements AppDeployer {
 
 	private static final Logger logger = LoggerFactory.getLogger(YarnAppDeployer.class);
 	private final YarnCloudAppService yarnCloudAppService;
-	private final StateMachine<States, Events> stateMachine;
+	private final StateMachine<String, String> stateMachine;
 
 	/**
 	 * Instantiates a new yarn stream module deployer.
@@ -72,7 +70,7 @@ public class YarnAppDeployer implements AppDeployer {
 	 * @param yarnCloudAppService the yarn cloud app service
 	 * @param stateMachine the state machine
 	 */
-	public YarnAppDeployer(YarnCloudAppService yarnCloudAppService, StateMachine<States, Events> stateMachine) {
+	public YarnAppDeployer(YarnCloudAppService yarnCloudAppService, StateMachine<String, String> stateMachine) {
 		this.yarnCloudAppService = yarnCloudAppService;
 		this.stateMachine = stateMachine;
 	}
@@ -114,7 +112,7 @@ public class YarnAppDeployer implements AppDeployer {
 
 		// TODO: using default app name "app" until we start to customise
 		//       via deploymentProperties
-		final Message<Events> message = MessageBuilder.withPayload(Events.DEPLOY)
+		final Message<String> message = MessageBuilder.withPayload(AppDeployerStateMachine.EVENT_DEPLOY)
 				.setHeader(AppDeployerStateMachine.HEADER_APP_VERSION, "app")
 				.setHeader(AppDeployerStateMachine.HEADER_CLUSTER_ID, clusterId)
 				.setHeader(AppDeployerStateMachine.HEADER_GROUP_ID, group)
@@ -127,15 +125,22 @@ public class YarnAppDeployer implements AppDeployer {
 
 		// Use of future here is to set id when it becomes available from machine
 		final SettableListenableFuture<String> id = new SettableListenableFuture<>();
-		final StateMachineListener<States, Events> listener = new StateMachineListenerAdapter<States, Events>() {
+		final StateMachineListener<String, String> listener = new StateMachineListenerAdapter<String, String>() {
 
 			@Override
-			public void stateContext(StateContext<States, Events> stateContext) {
-				if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId() == States.READY) {
-					if (message.getHeaders().getId().equals(stateContext.getMessageHeaders().getId())) {
-						String applicationId = stateContext.getStateMachine().getExtendedState().get(AppDeployerStateMachine.VAR_APPLICATION_ID, String.class);
-						DeploymentKey key = new DeploymentKey(group, definition.getName(), applicationId);
-						id.set(key.toString());
+			public void stateContext(StateContext<String, String> stateContext) {
+				if (stateContext.getStage() == Stage.STATE_ENTRY && stateContext.getTarget().getId().equals(AppDeployerStateMachine.STATE_READY)) {
+					if (ObjectUtils.nullSafeEquals(message.getHeaders().getId().toString(),
+							stateContext.getExtendedState().get(AppDeployerStateMachine.VAR_MESSAGE_ID, String.class))) {
+						Exception exception = stateContext.getExtendedState().get(AppDeployerStateMachine.VAR_ERROR, Exception.class);
+						if (exception != null) {
+							id.setException(exception);
+						} else {
+							String applicationId = stateContext.getStateMachine().getExtendedState()
+									.get(AppDeployerStateMachine.VAR_APPLICATION_ID, String.class);
+							DeploymentKey key = new DeploymentKey(group, definition.getName(), applicationId);
+							id.set(key.toString());
+						}
 					}
 				}
 			}
@@ -158,7 +163,7 @@ public class YarnAppDeployer implements AppDeployer {
 		// we need to block here until SPI supports
 		// returning id asynchronously
 		try {
-			return id.get(60, TimeUnit.SECONDS);
+			return id.get(2, TimeUnit.MINUTES);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -168,7 +173,7 @@ public class YarnAppDeployer implements AppDeployer {
 	public void undeploy(String id) {
 		logger.info("Undeploy request for id {}", id);
 		DeploymentKey key = new DeploymentKey(id);
-		Message<Events> message = MessageBuilder.withPayload(Events.UNDEPLOY)
+		Message<String> message = MessageBuilder.withPayload(AppDeployerStateMachine.EVENT_UNDEPLOY)
 				.setHeader(AppDeployerStateMachine.HEADER_CLUSTER_ID, key.getClusterId())
 				.setHeader(AppDeployerStateMachine.HEADER_APP_VERSION, "app")
 				.setHeader(AppDeployerStateMachine.HEADER_GROUP_ID, key.group)

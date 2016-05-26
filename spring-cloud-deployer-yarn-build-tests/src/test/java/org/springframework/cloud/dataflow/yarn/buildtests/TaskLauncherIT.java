@@ -50,6 +50,7 @@ import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppInstanceInfo;
 import org.springframework.cloud.deployer.spi.yarn.YarnCloudAppService.CloudAppType;
 import org.springframework.cloud.deployer.spi.yarn.YarnTaskLauncher;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -293,10 +294,22 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 			return executor;
 		}
 
+//		@Bean
+//		public TaskLauncherStateMachineDeprecated taskLauncherStateMachine(YarnCloudAppService yarnCloudAppService,
+//				TaskExecutor yarnTaskLauncherTaskExecutor, BeanFactory beanFactory) throws Exception {
+//			return new TaskLauncherStateMachineDeprecated(yarnCloudAppService, yarnTaskLauncherTaskExecutor, beanFactory);
+//		}
+//
+//		@Bean
+//		public TaskLauncher taskLauncher(YarnCloudAppService yarnCloudAppService,
+//				TaskLauncherStateMachineDeprecated taskLauncherStateMachine) throws Exception {
+//			return new YarnTaskLauncher(yarnCloudAppService, taskLauncherStateMachine.buildStateMachine());
+//		}
+
 		@Bean
 		public TaskLauncherStateMachine taskLauncherStateMachine(YarnCloudAppService yarnCloudAppService,
-				TaskExecutor yarnTaskLauncherTaskExecutor, BeanFactory beanFactory) throws Exception {
-			return new TaskLauncherStateMachine(yarnCloudAppService, yarnTaskLauncherTaskExecutor, beanFactory);
+				TaskExecutor yarnTaskLauncherTaskExecutor, BeanFactory beanFactory, ApplicationContext applicationContext) throws Exception {
+			return new TaskLauncherStateMachine(yarnCloudAppService, yarnTaskLauncherTaskExecutor, beanFactory, applicationContext);
 		}
 
 		@Bean
