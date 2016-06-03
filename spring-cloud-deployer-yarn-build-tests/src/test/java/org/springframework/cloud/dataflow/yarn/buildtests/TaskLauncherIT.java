@@ -294,18 +294,6 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 			return executor;
 		}
 
-//		@Bean
-//		public TaskLauncherStateMachineDeprecated taskLauncherStateMachine(YarnCloudAppService yarnCloudAppService,
-//				TaskExecutor yarnTaskLauncherTaskExecutor, BeanFactory beanFactory) throws Exception {
-//			return new TaskLauncherStateMachineDeprecated(yarnCloudAppService, yarnTaskLauncherTaskExecutor, beanFactory);
-//		}
-//
-//		@Bean
-//		public TaskLauncher taskLauncher(YarnCloudAppService yarnCloudAppService,
-//				TaskLauncherStateMachineDeprecated taskLauncherStateMachine) throws Exception {
-//			return new YarnTaskLauncher(yarnCloudAppService, taskLauncherStateMachine.buildStateMachine());
-//		}
-
 		@Bean
 		public TaskLauncherStateMachine taskLauncherStateMachine(YarnCloudAppService yarnCloudAppService,
 				TaskExecutor yarnTaskLauncherTaskExecutor, BeanFactory beanFactory, ApplicationContext applicationContext) throws Exception {

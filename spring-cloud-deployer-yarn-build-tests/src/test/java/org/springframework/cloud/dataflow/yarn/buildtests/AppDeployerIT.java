@@ -487,17 +487,6 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 			return executor;
 		}
 
-//		@Bean
-//		public AppDeployerStateMachineDeprecated appDeployerStateMachine(YarnCloudAppService yarnCloudAppService,
-//				TaskExecutor appDeployer, BeanFactory beanFactory) throws Exception {
-//			return new AppDeployerStateMachineDeprecated(yarnCloudAppService, appDeployer, beanFactory);
-//		}
-//
-//		@Bean
-//		public AppDeployer appDeployer(YarnCloudAppService yarnCloudAppService,
-//				AppDeployerStateMachineDeprecated appDeployerStateMachine) throws Exception {
-//			return new YarnAppDeployer(yarnCloudAppService, appDeployerStateMachine.buildStateMachine());
-//		}
 		@Bean
 		public AppDeployerStateMachine appDeployerStateMachine(YarnCloudAppService yarnCloudAppService,
 				TaskExecutor appDeployer, BeanFactory beanFactory, ApplicationContext applicationContext) throws Exception {
