@@ -84,6 +84,11 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 				list.add(Math.max(list.size() - 2, 0), "--" + entry.getKey() + "='" + entry.getValue() + "'");
 			}
 		}
+		if (taskAppmasterProperties.getCommandlineArguments() != null) {
+			for (String commandlineArgument : taskAppmasterProperties.getCommandlineArguments()) {
+				list.add(Math.max(list.size() - 2, 0), "'" + commandlineArgument + "'");
+			}
+		}
 		return list;
 	}
 

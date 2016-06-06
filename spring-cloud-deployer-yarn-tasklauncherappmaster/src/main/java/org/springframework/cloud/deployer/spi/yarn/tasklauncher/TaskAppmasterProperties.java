@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.deployer.spi.yarn.tasklauncher;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -30,6 +31,7 @@ public class TaskAppmasterProperties {
 
 	private String artifact;
 	private Map<String, String> parameters;
+	private List<String> commandlineArguments;
 
 	public String getArtifact() {
 		return artifact;
@@ -45,5 +47,13 @@ public class TaskAppmasterProperties {
 
 	public void setParameters(Map<String, String> parameters) {
 		this.parameters = parameters;
+	}
+
+	public List<String> getCommandlineArguments() {
+		return commandlineArguments;
+	}
+
+	public void setCommandlineArguments(List<String> commandlineArguments) {
+		this.commandlineArguments = commandlineArguments;
 	}
 }

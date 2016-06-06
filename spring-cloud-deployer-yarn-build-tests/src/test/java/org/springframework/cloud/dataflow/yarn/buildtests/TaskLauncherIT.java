@@ -17,6 +17,7 @@
 package org.springframework.cloud.dataflow.yarn.buildtests;
 
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -24,7 +25,10 @@ import static org.junit.Assert.assertThat;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,6 +134,54 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 
 		assertThat(resources, notNullValue());
 		assertThat(resources.size(), is(4));
+	}
+
+	@Test
+	public void testTaskTimestampCommandlineArgs() throws Exception {
+		assertThat(context.containsBean("taskLauncher"), is(true));
+		assertThat(context.getBean("taskLauncher"), instanceOf(YarnTaskLauncher.class));
+		TaskLauncher deployer = context.getBean("taskLauncher", TaskLauncher.class);
+		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
+
+		MavenProperties m2Properties = new MavenProperties();
+		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+
+		MavenResource resource = new MavenResource.Builder(m2Properties)
+				.artifactId("timestamp-task")
+				.groupId(GROUP_ID)
+				.version(artifactVersion)
+				.extension("jar")
+				.classifier("exec")
+				.build();
+
+		AppDefinition definition = new AppDefinition("timestamp-task", null);
+		List<String> commandlineArgs = new ArrayList<String>();
+		commandlineArgs.add("--format=yyyyMMdd yyyy");
+		AppDeploymentRequest request = new AppDeploymentRequest(definition, resource, null, commandlineArgs);
+		String id = deployer.launch(request);
+		assertThat(id, notNullValue());
+
+		ApplicationId applicationId = assertWaitApp(2, TimeUnit.MINUTES, yarnCloudAppService);
+		assertWaitFileContent(2, TimeUnit.MINUTES, applicationId, "Started TaskApplication");
+
+		List<Resource> resources = ContainerLogUtils.queryContainerLogs(
+				getYarnCluster(), applicationId);
+
+		assertThat(resources, notNullValue());
+		assertThat(resources.size(), is(4));
+
+		for (Resource res : resources) {
+			File file = res.getFile();
+			String content = ContainerLogUtils.getFileContent(file);
+			if (file.getName().endsWith("stdout")) {
+				assertThat(file.length(), greaterThan(0l));
+			}
+			if (file.getName().endsWith("Container.stdout")) {
+				SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd yyyy");
+				String expect = format.format(new Date());
+				assertThat(content, containsString(expect));
+			}
+		}
 	}
 
 	@Test

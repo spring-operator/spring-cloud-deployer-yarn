@@ -19,6 +19,7 @@ package org.springframework.cloud.deployer.spi.yarn;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -81,6 +82,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 		final String name = definition.getName();
 		Map<String, String> definitionParameters = definition.getProperties();
 		Map<String, String> environmentProperties = request.getEnvironmentProperties();
+		List<String> commandlineArguments = request.getCommandlineArguments();
 		String appName = "scdtask:" + name;
 
 		// contextRunArgs are passed to boot app ran to control yarn apps
@@ -91,6 +93,13 @@ public class YarnTaskLauncher implements TaskLauncher {
 		contextRunArgs.add("--spring.yarn.appName=" + appName);
 		for (Entry<String, String> entry : definitionParameters.entrySet()) {
 			contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.parameters." + entry.getKey() + ".='" + entry.getValue() + "'");
+		}
+
+		int index = 0;
+		for (String commandlineArgument : commandlineArguments) {
+			contextRunArgs.add("--spring.yarn.client.launchcontext.argumentsList[" + index
+					+ "]='--spring.cloud.deployer.yarn.appmaster.commandlineArguments[" + index + "]=" + commandlineArgument + "'");
+			index++;
 		}
 
 		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : "/dataflow/artifacts/cache/";
