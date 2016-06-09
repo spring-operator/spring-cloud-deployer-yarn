@@ -17,7 +17,7 @@ spring:
     appName: spring-cloud-dataflow-yarn-app
     applicationBaseDir: /dataflow/apps/stream/
     appmaster:
-      appmasterClass: org.springframework.cloud.dataflow.yarn.appdeployer.DataFlowAppmaster
+      appmasterClass: org.springframework.cloud.dataflow.yarn.appdeployer.StreamAppmaster
       keepContextAlive: true
       localizer:
         patterns:

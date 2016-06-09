@@ -43,9 +43,9 @@ import org.springframework.yarn.listener.ContainerMonitorListener;
  * @author Janne Valkealahti
  *
  */
-public class DataFlowAppmaster extends ManagedContainerClusterAppmaster {
+public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 
-	private final static Log log = LogFactory.getLog(DataFlowAppmaster.class);
+	private final static Log log = LogFactory.getLog(StreamAppmaster.class);
 	private final Map<String, ResourceLocalizer> artifactLocalizers = new HashMap<>();
 
 	@Autowired
