@@ -84,17 +84,17 @@ public class YarnAppDeployer implements AppDeployer {
 		logger.info("Deploy request for {}", request);
 		final AppDefinition definition = request.getDefinition();
 		Map<String, String> definitionParameters = definition.getProperties();
-		Map<String, String> environmentProperties = request.getEnvironmentProperties();
+		Map<String, String> deploymentProperties = request.getDeploymentProperties();
 		logger.info("Deploying request for definition {}", definition);
 		logger.info("Parameters for definition {}", definitionParameters);
-		logger.info("Environment properties for request {}", environmentProperties);
+		logger.info("Deployment properties for request {}", deploymentProperties);
 
 		int count = 1;
-		String countString = request.getEnvironmentProperties().get(AppDeployer.COUNT_PROPERTY_KEY);
+		String countString = request.getDeploymentProperties().get(AppDeployer.COUNT_PROPERTY_KEY);
 		if (StringUtils.hasText(countString)) {
 			count = Integer.parseInt(countString);
 		}
-		final String group = request.getEnvironmentProperties().get(AppDeployer.GROUP_PROPERTY_KEY);
+		final String group = request.getDeploymentProperties().get(AppDeployer.GROUP_PROPERTY_KEY);
 		Resource resource = request.getResource();
 		final String clusterId = group + ":" + definition.getName();
 
@@ -103,7 +103,7 @@ public class YarnAppDeployer implements AppDeployer {
 		contextRunArgs.add("--spring.yarn.appName=scdstream:app:" + group);
 
 		// deployment properties override servers.yml which overrides application.yml
-		for (Entry<String, String> entry : environmentProperties.entrySet()) {
+		for (Entry<String, String> entry : deploymentProperties.entrySet()) {
 			if (entry.getKey().startsWith("deployer.yarn.app.streamappmaster")) {
 				contextRunArgs.add("--" + entry.getKey() + "=" + entry.getValue());
 			} else if (entry.getKey().startsWith("deployer.yarn.app.streamcontainer")) {

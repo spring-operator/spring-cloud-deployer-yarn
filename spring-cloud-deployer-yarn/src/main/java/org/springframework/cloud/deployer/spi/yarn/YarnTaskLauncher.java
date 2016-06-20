@@ -76,7 +76,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 	@Override
 	public String launch(AppDeploymentRequest request) {
 		logger.info("Deploy request for {}", request);
-		logger.info("Deploy request env properties {}", request.getEnvironmentProperties());
+		logger.info("Deploy request deployment properties {}", request.getDeploymentProperties());
 		logger.info("Deploy definition {}", request.getDefinition());
 		Resource resource = request.getResource();
 		AppDefinition definition = request.getDefinition();
@@ -85,7 +85,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 
 		final String name = definition.getName();
 		Map<String, String> definitionParameters = definition.getProperties();
-		Map<String, String> environmentProperties = request.getEnvironmentProperties();
+		Map<String, String> deploymentProperties = request.getDeploymentProperties();
 		List<String> commandlineArguments = request.getCommandlineArguments();
 		String appName = "scdtask:" + name;
 
@@ -116,7 +116,7 @@ public class YarnTaskLauncher implements TaskLauncher {
 		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath + artifact);
 
 		// deployment properties override servers.yml which overrides application.yml
-		for (Entry<String, String> entry : environmentProperties.entrySet()) {
+		for (Entry<String, String> entry : deploymentProperties.entrySet()) {
 			if (entry.getKey().startsWith("deployer.yarn.app.taskcontainer")) {
 				contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "=" + entry.getValue());
 			} else if (entry.getKey().startsWith("deployer.yarn.app.taskappmaster")) {
