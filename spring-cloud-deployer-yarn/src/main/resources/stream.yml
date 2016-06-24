@@ -10,7 +10,7 @@ spring:
     appName: scdstream:app
     applicationBaseDir: ${deployer.yarn.app.baseDir:/dataflow}/apps/stream/
     client:
-      clientClass: org.springframework.yarn.client.DefaultApplicationYarnClient
+      clientClass: org.springframework.cloud.deployer.spi.yarn.DeployerApplicationYarnClient
       files:
         - "file:${deployer.yarn.app.appmaster.path:lib}/spring-cloud-deployer-yarn-appdeployerappmaster-*.jar"
         - "file:${deployer.yarn.app.config.path:config}/servers.yml*"
