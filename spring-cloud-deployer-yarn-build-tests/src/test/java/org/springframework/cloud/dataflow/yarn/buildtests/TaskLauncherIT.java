@@ -45,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.deployer.resource.maven.MavenProperties;
 import org.springframework.cloud.deployer.resource.maven.MavenResource;
+import org.springframework.cloud.deployer.resource.maven.MavenProperties.RemoteRepository;
 import org.springframework.cloud.deployer.spi.core.AppDefinition;
 import org.springframework.cloud.deployer.spi.core.AppDeploymentRequest;
 import org.springframework.cloud.deployer.spi.task.LaunchState;
@@ -113,7 +114,9 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
 
 		MavenProperties m2Properties = new MavenProperties();
-		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+		Map<String, RemoteRepository> remoteRepositories = new HashMap<>();
+		remoteRepositories.put("default", new RemoteRepository("https://repo.spring.io/libs-snapshot-local"));
+		m2Properties.setRemoteRepositories(remoteRepositories);
 
 		MavenResource resource = new MavenResource.Builder(m2Properties)
 				.artifactId("timestamp-task")
@@ -146,7 +149,9 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
 
 		MavenProperties m2Properties = new MavenProperties();
-		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+		Map<String, RemoteRepository> remoteRepositories = new HashMap<>();
+		remoteRepositories.put("default", new RemoteRepository("https://repo.spring.io/libs-snapshot-local"));
+		m2Properties.setRemoteRepositories(remoteRepositories);
 
 		MavenResource resource = new MavenResource.Builder(m2Properties)
 				.artifactId("timestamp-task")
@@ -194,7 +199,9 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
 
 		MavenProperties m2Properties = new MavenProperties();
-		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+		Map<String, RemoteRepository> remoteRepositories = new HashMap<>();
+		remoteRepositories.put("default", new RemoteRepository("https://repo.spring.io/libs-snapshot-local"));
+		m2Properties.setRemoteRepositories(remoteRepositories);
 
 		MavenResource base = new MavenResource.Builder(m2Properties)
 				.artifactId("timestamp-task")
@@ -257,7 +264,9 @@ public class TaskLauncherIT extends AbstractCliBootYarnClusterTests {
 		YarnCloudAppService yarnCloudAppService = context.getBean(YarnCloudAppService.class);
 
 		MavenProperties m2Properties = new MavenProperties();
-		m2Properties.setRemoteRepositories(new String[] {"https://repo.spring.io/libs-snapshot-local"});
+		Map<String, RemoteRepository> remoteRepositories = new HashMap<>();
+		remoteRepositories.put("default", new RemoteRepository("https://repo.spring.io/libs-snapshot-local"));
+		m2Properties.setRemoteRepositories(remoteRepositories);
 
 		MavenResource resource = new MavenResource.Builder(m2Properties)
 				.artifactId("timestamp-task")
