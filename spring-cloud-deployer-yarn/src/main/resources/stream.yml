@@ -8,17 +8,17 @@ spring:
   yarn:
     appType: DATAFLOW
     appName: scdstream:app
-    applicationBaseDir: ${deployer.yarn.app.baseDir:/dataflow}/apps/stream/
+    applicationBaseDir: ${spring.cloud.deployer.yarn.app.baseDir:/dataflow}/apps/stream/
     client:
       clientClass: org.springframework.cloud.deployer.spi.yarn.DeployerApplicationYarnClient
       files:
         - "file:${deployer.yarn.app.appmaster.path:lib}/spring-cloud-deployer-yarn-appdeployerappmaster-*.jar"
         - "file:${deployer.yarn.app.config.path:config}/servers.yml*"
-      queue: ${deployer.yarn.app.streamappmaster.queue:default}
-      labelExpression: ${deployer.yarn.app.streamappmaster.labelExpression:}
+      queue: ${spring.cloud.deployer.yarn.app.streamappmaster.queue:default}
+      labelExpression: ${spring.cloud.deployer.yarn.app.streamappmaster.labelExpression:}
       launchcontext:
         options:
-          - ${deployer.yarn.app.streamappmaster.javaOpts:}
+          - ${spring.cloud.deployer.yarn.app.streamappmaster.javaOpts:}
         arguments:
           -Dspring.config.location: servers.yml
         archiveFile: spring-cloud-deployer-yarn-appdeployerappmaster-${spring.cloud.deployer.yarn.version}.jar
@@ -27,5 +27,5 @@ spring:
           - "spring-cloud-deployer-yarn-appdeployerappmaster-*.jar"
           - "servers.yml"
       resource:
-        memory: ${deployer.yarn.app.streamappmaster.memory:512m}
-        virtualCores: ${deployer.yarn.app.streamappmaster.virtualCores:1}
+        memory: ${spring.cloud.deployer.yarn.app.streamappmaster.memory:512m}
+        virtualCores: ${spring.cloud.deployer.yarn.app.streamappmaster.virtualCores:1}

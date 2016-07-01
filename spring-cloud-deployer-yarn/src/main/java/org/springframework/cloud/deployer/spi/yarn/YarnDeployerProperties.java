@@ -18,7 +18,7 @@ package org.springframework.cloud.deployer.spi.yarn;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(value = "deployer.yarn.app")
+@ConfigurationProperties(value = "spring.cloud.deployer.yarn.app")
 public class YarnDeployerProperties {
 
 	private String baseDir = "/dataflow";

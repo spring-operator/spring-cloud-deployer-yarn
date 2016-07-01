@@ -11,7 +11,7 @@ spring:
       yarn:
         version: "@project.version@"
   yarn:
-    applicationBaseDir: ${deployer.yarn.app.baseDir:/dataflow}/apps/task/
+    applicationBaseDir: ${spring.cloud.deployer.yarn.app.baseDir:/dataflow}/apps/task/
     appmaster:
       containerCount: 1
       appmasterClass: org.springframework.cloud.deployer.spi.yarn.tasklauncher.TaskAppmaster
@@ -19,13 +19,13 @@ spring:
         patterns:
           - "servers.yml"
       resource:
-        priority: ${deployer.yarn.app.taskcontainer.priority:10}
-        labelExpression: ${deployer.yarn.app.taskcontainer.labelExpression:}
-        memory: ${deployer.yarn.app.taskcontainer.memory:256m}
-        virtualCores: ${deployer.yarn.app.taskcontainer.virtualCores:1}
+        priority: ${spring.cloud.deployer.yarn.app.taskcontainer.priority:10}
+        labelExpression: ${spring.cloud.deployer.yarn.app.taskcontainer.labelExpression:}
+        memory: ${spring.cloud.deployer.yarn.app.taskcontainer.memory:256m}
+        virtualCores: ${spring.cloud.deployer.yarn.app.taskcontainer.virtualCores:1}
       launchcontext:
         options:
-          - ${deployer.yarn.app.taskcontainer.javaOpts:}
+          - ${spring.cloud.deployer.yarn.app.taskcontainer.javaOpts:}
         arguments:
           -Dserver.port: 0
           -Dspring.jmx.enabled: false              

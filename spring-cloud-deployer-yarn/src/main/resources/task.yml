@@ -7,18 +7,18 @@ spring:
         version: "@project.version@"
   yarn:
     appType: DATAFLOW
-    applicationBaseDir: ${deployer.yarn.app.baseDir:/dataflow}/apps/task/
+    applicationBaseDir: ${spring.cloud.deployer.yarn.app.baseDir:/dataflow}/apps/task/
     client:
       enabled: true
       clientClass: org.springframework.cloud.deployer.spi.yarn.DeployerApplicationYarnClient
       files:
         - "file:${deployer.yarn.app.appmaster.path:lib}/spring-cloud-deployer-yarn-tasklauncherappmaster-*.jar"
         - "file:${deployer.yarn.app.config.path:config}/servers.yml*"
-      queue: ${deployer.yarn.app.taskappmaster.queue:default}
-      labelExpression: ${deployer.yarn.app.taskappmaster.labelExpression:}
+      queue: ${spring.cloud.deployer.yarn.app.taskappmaster.queue:default}
+      labelExpression: ${spring.cloud.deployer.yarn.app.taskappmaster.labelExpression:}
       launchcontext:
         options:
-          - ${deployer.yarn.app.taskappmaster.javaOpts:}
+          - ${spring.cloud.deployer.yarn.app.taskappmaster.javaOpts:}
         arguments:
           -Dspring.config.location: servers.yml
         archiveFile: spring-cloud-deployer-yarn-tasklauncherappmaster-${spring.cloud.deployer.yarn.version}.jar
@@ -27,7 +27,7 @@ spring:
           - "spring-cloud-deployer-yarn-tasklauncherappmaster-*.jar"
           - "servers.yml"
       resource:
-        memory: ${deployer.yarn.app.taskappmaster.memory:512m}
-        virtualCores: ${deployer.yarn.app.taskappmaster.virtualCores:1}
+        memory: ${spring.cloud.deployer.yarn.app.taskappmaster.memory:512m}
+        virtualCores: ${spring.cloud.deployer.yarn.app.taskappmaster.virtualCores:1}
     container:
       enabled: false
