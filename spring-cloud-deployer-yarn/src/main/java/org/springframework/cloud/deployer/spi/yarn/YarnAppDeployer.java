@@ -108,7 +108,7 @@ public class YarnAppDeployer implements AppDeployer {
 				contextRunArgs.add("--" + entry.getKey() + "=" + entry.getValue());
 			} else if (entry.getKey().startsWith("spring.cloud.deployer.yarn.app.streamcontainer")) {
 				// weird format with '--' is just straight pass to appmaster
-				contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "=" + entry.getValue());
+				contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "='" + entry.getValue() + "'");
 			}
 		}
 
