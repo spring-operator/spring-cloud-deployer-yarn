@@ -52,12 +52,12 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableConfigurationProperties({ YarnDeployerProperties.class })
 public class YarnDeployerAutoConfiguration {
 
-	@Value("${spring.cloud.dataflow.yarn.version:}")
-	private String dataflowVersion;
+	@Value("${spring.cloud.deployer.yarn.version:}")
+	private String deployerVersion;
 
 	@Bean
 	public YarnCloudAppService yarnCloudAppService() {
-		return new DefaultYarnCloudAppService(dataflowVersion);
+		return new DefaultYarnCloudAppService(deployerVersion);
 	}
 
 	@Bean

@@ -51,7 +51,7 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultYarnCloudAppService.class);
 	private final ApplicationContextInitializer<?>[] initializers;
-	private final String dataflowVersion;
+	private final String deployerVersion;
 	private final Map<String, YarnCloudAppServiceApplication> appCache = new HashMap<String, YarnCloudAppServiceApplication>();
 
 	private Configuration configuration;
@@ -59,20 +59,20 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 	/**
 	 * Instantiates a new default yarn cloud app service.
 	 *
-	 * @param dataflowVersion the dataflow version
+	 * @param deployerVersion the deployer version
 	 */
-	public DefaultYarnCloudAppService(String dataflowVersion) {
-		this(dataflowVersion, null);
+	public DefaultYarnCloudAppService(String deployerVersion) {
+		this(deployerVersion, null);
 	}
 
 	/**
 	 * Instantiates a new default yarn cloud app service.
 	 *
-	 * @param dataflowVersion the dataflow version
+	 * @param deployerVersion the deployer version
 	 * @param initializers the initializers
 	 */
-	public DefaultYarnCloudAppService(String dataflowVersion, ApplicationContextInitializer<?>[] initializers) {
-		this.dataflowVersion = dataflowVersion;
+	public DefaultYarnCloudAppService(String deployerVersion, ApplicationContextInitializer<?>[] initializers) {
+		this.deployerVersion = deployerVersion;
 		this.initializers = initializers;
 	}
 
@@ -114,7 +114,7 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 
 	@Override
 	public void pushApplication(String appVersion, CloudAppType cloudAppType) {
-		getApp(appVersion, dataflowVersion, cloudAppType, null).pushApplication(appVersion);
+		getApp(appVersion, deployerVersion, cloudAppType, null).pushApplication(appVersion);
 	}
 
 	@Override
@@ -124,7 +124,7 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 
 	@Override
 	public String submitApplication(String appVersion, CloudAppType cloudAppType, List<String> contextRunArgs) {
-		return getApp(appVersion, dataflowVersion, cloudAppType, contextRunArgs).submitApplication(appVersion);
+		return getApp(appVersion, deployerVersion, cloudAppType, contextRunArgs).submitApplication(appVersion);
 	}
 
 	@Override

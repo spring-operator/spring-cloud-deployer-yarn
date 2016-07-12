@@ -516,8 +516,8 @@ public class AppDeployerIT extends AbstractCliBootYarnClusterTests {
 		public YarnCloudAppService yarnCloudAppService() {
 			ApplicationContextInitializer<?>[] initializers = new ApplicationContextInitializer<?>[] {
 					new HadoopConfigurationInjectingInitializer(configuration) };
-			String dataflowVersion = environment.getProperty("projectVersion");
-			return new DefaultYarnCloudAppService(dataflowVersion, initializers) {
+			String deployerVersion = environment.getProperty("projectVersion");
+			return new DefaultYarnCloudAppService(deployerVersion, initializers) {
 				@Override
 				protected List<String> processContextRunArgs(List<String> contextRunArgs) {
 					List<String> newArgs = new ArrayList<>();
