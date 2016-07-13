@@ -27,7 +27,6 @@ import java.util.UUID;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.mortbay.log.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -83,18 +82,27 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 
 	@Override
 	public void pushArtifact(Resource artifact, String dir) {
+		File tmp = null;
 		try {
-			File tmp = File.createTempFile(UUID.randomUUID().toString(), null);
+			tmp = File.createTempFile(UUID.randomUUID().toString(), null);
+			tmp.deleteOnExit();
 			FileCopyUtils.copy(artifact.getInputStream(), new FileOutputStream(tmp));
 			@SuppressWarnings("resource")
 			FsShell shell = new FsShell(configuration);
 			String artifactPath = dir + "/" + artifact.getFile().getName();
 			if (!shell.test(artifactPath)) {
-				Log.info("Pushing artifact {} into dir {}", artifact, dir);
+				logger.info("Pushing artifact {} into dir {}", artifact, dir);
 				shell.copyFromLocal(tmp.getAbsolutePath(), artifactPath);
 			}
 		} catch (Exception e) {
 			logger.error("Error pushing artifact", e);
+		} finally {
+			if (tmp != null) {
+				try {
+					tmp.delete();
+				} catch (Exception e) {
+				}
+			}
 		}
 	}
 
