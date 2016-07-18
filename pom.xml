@@ -16,7 +16,7 @@
 
 	<properties>
 		<spring-cloud-deployer.version>1.0.2.RELEASE</spring-cloud-deployer.version>
-		<spring-hadoop.version>2.4.0.RELEASE</spring-hadoop.version>
+		<spring-data-hadoop.version>2.4.0.RELEASE</spring-data-hadoop.version>
 		<spring-statemachine.version>1.1.0.RELEASE</spring-statemachine.version>
 	</properties>
 
@@ -42,12 +42,12 @@
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-yarn-boot</artifactId>
-				<version>${spring-hadoop.version}</version>
+				<version>${spring-data-hadoop.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-yarn-boot-cli</artifactId>
-				<version>${spring-hadoop.version}</version>
+				<version>${spring-data-hadoop.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
@@ -83,7 +83,7 @@
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-yarn-boot-test</artifactId>
-				<version>${spring-hadoop.version}</version>
+				<version>${spring-data-hadoop.version}</version>
 				<scope>test</scope>
 			</dependency>
 		</dependencies>
