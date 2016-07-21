@@ -16,13 +16,19 @@
 
 package org.springframework.cloud.deployer.spi.yarn.autoconfigure;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.deployer.resource.maven.MavenResourceLoader;
+import org.springframework.cloud.deployer.resource.support.DelegatingResourceLoader;
 import org.springframework.cloud.deployer.spi.app.AppDeployer;
 import org.springframework.cloud.deployer.spi.task.TaskLauncher;
 import org.springframework.cloud.deployer.spi.yarn.AppDeployerStateMachine;
@@ -36,7 +42,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.hadoop.fs.HdfsResourceLoader;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
@@ -54,6 +63,22 @@ public class YarnDeployerAutoConfiguration {
 
 	@Value("${spring.cloud.deployer.yarn.version:}")
 	private String deployerVersion;
+
+	@Autowired(required = false)
+	private MavenResourceLoader mavenResourceLoader;
+
+	@Bean
+	public DelegatingResourceLoader delegatingResourceLoader(org.apache.hadoop.conf.Configuration configuration) {
+		DefaultResourceLoader defaultLoader = new DefaultResourceLoader();
+		Map<String, ResourceLoader> loaders = new HashMap<>();
+		loaders.put("hdfs", new HdfsResourceLoader(configuration));
+		if (mavenResourceLoader != null) {
+			loaders.put("maven", mavenResourceLoader);
+		}
+		loaders.put("file", defaultLoader);
+		loaders.put("http", defaultLoader);
+		return new DelegatingResourceLoader(loaders);
+	}
 
 	@Bean
 	public YarnCloudAppService yarnCloudAppService() {
