@@ -31,6 +31,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.Lifecycle;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 import org.springframework.yarn.am.ContainerLauncherInterceptor;
 import org.springframework.yarn.am.StaticEventingAppmaster;
 import org.springframework.yarn.am.container.AbstractLauncher;
@@ -81,7 +82,11 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 		List<String> list = new ArrayList<String>(super.getCommands());
 		if (taskAppmasterProperties.getParameters() != null) {
 			for (Entry<String, String> entry : taskAppmasterProperties.getParameters().entrySet()) {
-				list.add(Math.max(list.size() - 2, 0), "--" + entry.getKey() + "='" + entry.getValue() + "'");
+				if (StringUtils.hasText(entry.getValue())) {
+					// don't pass empty values as those will most likely fail
+					// with spring/boot command-line parser
+					list.add(Math.max(list.size() - 2, 0), "--" + entry.getKey() + "='" + entry.getValue() + "'");
+				}
 			}
 		}
 		if (taskAppmasterProperties.getCommandlineArguments() != null) {

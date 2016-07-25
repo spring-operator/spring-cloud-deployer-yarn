@@ -45,6 +45,7 @@ import org.springframework.statemachine.listener.StateMachineListener;
 import org.springframework.statemachine.listener.StateMachineListenerAdapter;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 import org.springframework.util.concurrent.SettableListenableFuture;
 
@@ -96,7 +97,11 @@ public class YarnTaskLauncher implements TaskLauncher {
 
 		contextRunArgs.add("--spring.yarn.appName=" + appName);
 		for (Entry<String, String> entry : definitionParameters.entrySet()) {
-			contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.parameters." + entry.getKey() + ".='" + entry.getValue() + "'");
+			if (StringUtils.hasText(entry.getValue())) {
+				contextRunArgs
+						.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.parameters."
+								+ entry.getKey() + ".='" + entry.getValue() + "'");
+			}
 		}
 
 		int index = 0;
@@ -117,10 +122,12 @@ public class YarnTaskLauncher implements TaskLauncher {
 
 		// deployment properties override servers.yml which overrides application.yml
 		for (Entry<String, String> entry : deploymentProperties.entrySet()) {
-			if (entry.getKey().startsWith("spring.cloud.deployer.yarn.app.taskcontainer")) {
-				contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "='" + entry.getValue() + "'");
-			} else if (entry.getKey().startsWith("spring.cloud.deployer.yarn.app.taskappmaster")) {
-				contextRunArgs.add("--" + entry.getKey() + "=" + entry.getValue());
+			if (StringUtils.hasText(entry.getValue())) {
+				if (entry.getKey().startsWith("spring.cloud.deployer.yarn.app.taskcontainer")) {
+					contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--" + entry.getKey() + "='" + entry.getValue() + "'");
+				} else if (entry.getKey().startsWith("spring.cloud.deployer.yarn.app.taskappmaster")) {
+					contextRunArgs.add("--" + entry.getKey() + "=" + entry.getValue());
+				}
 			}
 		}
 
