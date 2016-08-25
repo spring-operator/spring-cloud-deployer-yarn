@@ -31,6 +31,7 @@ spring:
             launchcontext:
               options:
                 - ${spring.cloud.deployer.yarn.app.streamcontainer.javaOpts:}
+                - ${spring.cloud.deployer.yarn.app.streamcontainer.saslConfig:}
               arguments:
                 -Dserver.port: 0
                 -Dendpoints.jmx.unique-names: true
