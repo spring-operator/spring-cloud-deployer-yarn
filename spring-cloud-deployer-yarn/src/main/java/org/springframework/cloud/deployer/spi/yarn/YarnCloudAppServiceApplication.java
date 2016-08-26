@@ -312,7 +312,8 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 	@EnableAutoConfiguration(exclude = { EmbeddedServletContainerAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			JmxAutoConfiguration.class, BatchAutoConfiguration.class, JmxAutoConfiguration.class,
 			EndpointMBeanExportAutoConfiguration.class, EndpointAutoConfiguration.class }, excludeName = {
-					"org.springframework.cloud.dataflow.server.config.DataFlowControllerAutoConfiguration" })
+					"org.springframework.cloud.dataflow.server.config.DataFlowControllerAutoConfiguration",
+					"org.springframework.cloud.deployer.spi.yarn.autoconfigure.YarnDeployerAutoConfiguration"})
 	public static class Config {
 	}
 
