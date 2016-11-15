@@ -22,6 +22,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class YarnDeployerProperties {
 
 	private String baseDir = "/dataflow";
+	private String appVersion;
 
 	public String getBaseDir() {
 		return baseDir;
@@ -29,5 +30,13 @@ public class YarnDeployerProperties {
 
 	public void setBaseDir(String baseDir) {
 		this.baseDir = baseDir;
+	}
+
+	public String getAppVersion() {
+		return appVersion;
+	}
+
+	public void setAppVersion(String appVersion) {
+		this.appVersion = appVersion;
 	}
 }

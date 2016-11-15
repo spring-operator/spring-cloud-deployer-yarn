@@ -131,8 +131,10 @@ public class YarnTaskLauncher implements TaskLauncher {
 			}
 		}
 
+		String appVersion = StringUtils.hasText(yarnDeployerProperties.getAppVersion()) ? yarnDeployerProperties.getAppVersion() : "app";
+
 		final Message<String> message = MessageBuilder.withPayload(TaskLauncherStateMachine.EVENT_LAUNCH)
-				.setHeader(TaskLauncherStateMachine.HEADER_APP_VERSION, "app")
+				.setHeader(TaskLauncherStateMachine.HEADER_APP_VERSION, appVersion)
 				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT, resource)
 				.setHeader(TaskLauncherStateMachine.HEADER_ARTIFACT_DIR, artifactPath)
 				.setHeader(TaskLauncherStateMachine.HEADER_DEFINITION_PARAMETERS, definitionParameters)

@@ -189,7 +189,7 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 		HashMap<String, ClustersInfoReportData> states = new HashMap<String, ClustersInfoReportData>();
 		Collection<CloudAppInstanceInfo> submittedApplications = getApp(null, null, CloudAppType.STREAM).getSubmittedApplications(yarnApplicationId);
 		for (CloudAppInstanceInfo instanceInfo : submittedApplications) {
-			if (instanceInfo.getName().startsWith("scdstream:app") && instanceInfo.getState().equals("RUNNING")) {
+			if (instanceInfo.getName().startsWith("scdstream:") && instanceInfo.getState().equals("RUNNING")) {
 				for (String cluster : getClusters(instanceInfo.getApplicationId())) {
 					states.putAll(getInstanceClustersStates(instanceInfo.getApplicationId(), cluster));
 				}

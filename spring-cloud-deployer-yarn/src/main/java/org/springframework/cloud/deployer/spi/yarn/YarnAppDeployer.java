@@ -98,9 +98,10 @@ public class YarnAppDeployer implements AppDeployer {
 		Resource resource = request.getResource();
 		final String clusterId = group + ":" + definition.getName();
 
+		String appVersion = StringUtils.hasText(yarnDeployerProperties.getAppVersion()) ? yarnDeployerProperties.getAppVersion() : "app";
 		// contextRunArgs are passed to boot app ran to control yarn apps
 		ArrayList<String> contextRunArgs = new ArrayList<String>();
-		contextRunArgs.add("--spring.yarn.appName=scdstream:app:" + group);
+		contextRunArgs.add("--spring.yarn.appName=scdstream:" + appVersion + ":" + group);
 
 		// deployment properties override servers.yml which overrides application.yml
 		for (Entry<String, String> entry : deploymentProperties.entrySet()) {
@@ -120,10 +121,8 @@ public class YarnAppDeployer implements AppDeployer {
 		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : baseDir + "/artifacts/cache/";
 		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath);
 
-		// TODO: using default app name "app" until we start to customise
-		//       via deploymentProperties
 		final Message<String> message = MessageBuilder.withPayload(AppDeployerStateMachine.EVENT_DEPLOY)
-				.setHeader(AppDeployerStateMachine.HEADER_APP_VERSION, "app")
+				.setHeader(AppDeployerStateMachine.HEADER_APP_VERSION, appVersion)
 				.setHeader(AppDeployerStateMachine.HEADER_CLUSTER_ID, clusterId)
 				.setHeader(AppDeployerStateMachine.HEADER_GROUP_ID, group)
 				.setHeader(AppDeployerStateMachine.HEADER_COUNT, count)
