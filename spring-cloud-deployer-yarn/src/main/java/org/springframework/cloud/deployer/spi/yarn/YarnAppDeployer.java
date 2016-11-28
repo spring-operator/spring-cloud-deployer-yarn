@@ -121,6 +121,10 @@ public class YarnAppDeployer implements AppDeployer {
 		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : baseDir + "/artifacts/cache/";
 		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath);
 
+		// add group as 'spring.cloud.application.group'
+		definitionParameters = new HashMap<>(definitionParameters);
+		definitionParameters.put("spring.cloud.application.group", group);
+
 		final Message<String> message = MessageBuilder.withPayload(AppDeployerStateMachine.EVENT_DEPLOY)
 				.setHeader(AppDeployerStateMachine.HEADER_APP_VERSION, appVersion)
 				.setHeader(AppDeployerStateMachine.HEADER_CLUSTER_ID, clusterId)

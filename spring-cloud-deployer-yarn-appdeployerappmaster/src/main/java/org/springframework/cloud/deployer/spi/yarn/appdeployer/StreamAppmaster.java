@@ -197,6 +197,7 @@ public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 				reservedIndex = indexTracker.reserveIndex(container.getId(), containerCluster);
 			}
 			indexEnv.put("INSTANCE_INDEX", Integer.toString(reservedIndex));
+			indexEnv.put("SPRING_APPLICATION_INDEX", Integer.toString(reservedIndex));
 			context.setEnvironment(indexEnv);
 			return context;
 		}
