@@ -232,6 +232,14 @@ public class YarnTaskLauncher implements TaskLauncher {
 		return new TaskStatus(id, LaunchState.unknown, null);
 	}
 
+	@Override
+	public void cleanup(String id) {
+	}
+
+	@Override
+	public void destroy(String appName) {
+	}
+
 	private static class DeploymentKey {
 		final static String SEPARATOR = ":";
 		final String name;
