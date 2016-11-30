@@ -99,6 +99,9 @@ public class YarnAppDeployer implements AppDeployer {
 		final String clusterId = group + ":" + definition.getName();
 
 		String appVersion = StringUtils.hasText(yarnDeployerProperties.getAppVersion()) ? yarnDeployerProperties.getAppVersion() : "app";
+		if (deploymentProperties.containsKey("spring.cloud.deployer.yarn.app.appVersion")) {
+			appVersion = deploymentProperties.get("spring.cloud.deployer.yarn.app.appVersion");
+		}
 		// contextRunArgs are passed to boot app ran to control yarn apps
 		ArrayList<String> contextRunArgs = new ArrayList<String>();
 		contextRunArgs.add("--spring.yarn.appName=scdstream:" + appVersion + ":" + group);

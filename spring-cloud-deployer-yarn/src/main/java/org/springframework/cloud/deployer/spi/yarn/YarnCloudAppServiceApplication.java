@@ -304,8 +304,11 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 	}
 
 	private static String resolveApplicationdir(SpringYarnProperties springYarnProperties, String applicationName) {
-		return springYarnProperties.getApplicationBaseDir().endsWith("/") ? springYarnProperties.getApplicationBaseDir()
-				: (springYarnProperties.getApplicationBaseDir() + "/") + applicationName + "/";
+		String applicationBaseDir = springYarnProperties.getApplicationBaseDir();
+		if (!applicationBaseDir.endsWith("/")) {
+			applicationBaseDir += "/";
+		}
+		return applicationBaseDir + applicationName + "/";
 	}
 
 	@Configuration

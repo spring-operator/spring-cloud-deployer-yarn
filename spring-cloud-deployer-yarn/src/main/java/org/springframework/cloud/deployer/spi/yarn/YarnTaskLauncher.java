@@ -132,6 +132,9 @@ public class YarnTaskLauncher implements TaskLauncher {
 		}
 
 		String appVersion = StringUtils.hasText(yarnDeployerProperties.getAppVersion()) ? yarnDeployerProperties.getAppVersion() : "app";
+		if (deploymentProperties.containsKey("spring.cloud.deployer.yarn.app.appVersion")) {
+			appVersion = deploymentProperties.get("spring.cloud.deployer.yarn.app.appVersion");
+		}
 
 		final Message<String> message = MessageBuilder.withPayload(TaskLauncherStateMachine.EVENT_LAUNCH)
 				.setHeader(TaskLauncherStateMachine.HEADER_APP_VERSION, appVersion)
