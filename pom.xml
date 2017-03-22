@@ -10,12 +10,12 @@
 	<parent>
 		<groupId>org.springframework.cloud</groupId>
 		<artifactId>spring-cloud-deployer-parent</artifactId>
-		<version>1.2.0.M2</version>
+		<version>1.2.0.M3</version>
 		<relativePath />
 	</parent>
 
 	<properties>
-		<spring-cloud-deployer.version>1.2.0.M2</spring-cloud-deployer.version>
+		<spring-cloud-deployer.version>1.2.0.M3</spring-cloud-deployer.version>
 		<spring-data-hadoop.version>2.4.0.RELEASE</spring-data-hadoop.version>
 		<spring-statemachine.version>1.1.0.RELEASE</spring-statemachine.version>
 	</properties>

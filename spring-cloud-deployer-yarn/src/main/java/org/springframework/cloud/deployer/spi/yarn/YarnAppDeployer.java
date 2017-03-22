@@ -34,6 +34,8 @@ import org.springframework.cloud.deployer.spi.app.AppStatus.Builder;
 import org.springframework.cloud.deployer.spi.app.DeploymentState;
 import org.springframework.cloud.deployer.spi.core.AppDefinition;
 import org.springframework.cloud.deployer.spi.core.AppDeploymentRequest;
+import org.springframework.cloud.deployer.spi.core.RuntimeEnvironmentInfo;
+import org.springframework.cloud.deployer.spi.util.RuntimeVersionUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -214,6 +216,19 @@ public class YarnAppDeployer implements AppDeployer {
 			}
 		}
 		return builder.build();
+	}
+
+	@Override
+	public RuntimeEnvironmentInfo environmentInfo() {
+		return new RuntimeEnvironmentInfo.Builder()
+				.spiClass(AppDeployer.class)
+				.implementationName(getClass().getSimpleName())
+				.implementationVersion(RuntimeVersionUtils.getVersion(this.getClass()))
+				.platformType("Yarn")
+				.platformApiVersion(System.getProperty("os.name") + " " + System.getProperty("os.version"))
+				.platformClientVersion(System.getProperty("os.version"))
+				.platformHostVersion(System.getProperty("os.version"))
+				.build();
 	}
 
 	private boolean isHdfsResource(Resource resource) {
