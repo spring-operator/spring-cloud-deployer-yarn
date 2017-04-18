@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 the original author or authors.
+ * Copyright 2015-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.cloud.deployer.spi.yarn;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -205,11 +206,17 @@ public class YarnAppDeployer implements AppDeployer {
 		logger.info("Checking status of {}", id);
 		DeploymentKey key = new DeploymentKey(id);
 		Builder builder = AppStatus.of(id);
-		for (Entry<String, ClustersInfoReportData> entry : yarnCloudAppService.getClustersStates(key.applicationId).entrySet()) {
+		for (Entry<String, StreamClustersInfoReportData> entry : yarnCloudAppService.getClustersStates(key.applicationId).entrySet()) {
 			if (ObjectUtils.nullSafeEquals(entry.getKey(), key.getClusterId())) {
 				ClustersInfoReportData data = entry.getValue();
+				List<String> members = entry.getValue().getMembers();
 				for (int i = 0 ; i < data.getProjectionAny(); i++) {
-					InstanceStatus instanceStatus = new InstanceStatus(key.getClusterId() + "-" + i, i < data.getCount(), null);
+					Map<String, String> attributes = new HashMap<>();
+					if (i < members.size()) {
+						attributes.put("container", members.get(i));
+						attributes.put("guid", members.get(i));
+					}
+					InstanceStatus instanceStatus = new InstanceStatus(key.getClusterId() + "-" + i, i < data.getCount(), attributes);
 					builder.with(instanceStatus);
 				}
 				break;

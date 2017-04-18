@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 the original author or authors.
+ * Copyright 2015-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ import org.springframework.yarn.boot.actuate.endpoint.mvc.AbstractContainerClust
 import org.springframework.yarn.boot.actuate.endpoint.mvc.ContainerClusterCreateRequest;
 import org.springframework.yarn.boot.actuate.endpoint.mvc.ContainerClusterModifyRequest;
 import org.springframework.yarn.boot.actuate.endpoint.mvc.domain.ContainerClusterResource;
+import org.springframework.yarn.boot.actuate.endpoint.mvc.domain.GridMemberResource;
 import org.springframework.yarn.boot.actuate.endpoint.mvc.domain.YarnContainerClusterEndpointResource;
 import org.springframework.yarn.boot.app.YarnContainerClusterClientException;
 import org.springframework.yarn.boot.app.YarnContainerClusterOperations;
@@ -65,7 +66,6 @@ import org.springframework.yarn.boot.support.SpringYarnBootUtils;
 import org.springframework.yarn.client.ApplicationDescriptor;
 import org.springframework.yarn.client.ApplicationYarnClient;
 import org.springframework.yarn.client.YarnClient;
-import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 /**
  * Boot application wrapper combining needed features from application classes
@@ -208,8 +208,8 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 		return response.getClusters();
 	}
 
-	public List<ClustersInfoReportData> getClusterInfo(ApplicationId applicationId, String clusterId) {
-		List<ClustersInfoReportData> data = new ArrayList<ClustersInfoReportData>();
+	public List<StreamClustersInfoReportData> getClusterInfo(ApplicationId applicationId, String clusterId) {
+		List<StreamClustersInfoReportData> data = new ArrayList<StreamClustersInfoReportData>();
 		YarnContainerClusterOperations operations = buildClusterOperations(restTemplate, yarnClient, applicationId);
 
 		try {
@@ -220,9 +220,13 @@ public class YarnCloudAppServiceApplication implements InitializingBean, Disposa
 			Integer sany = response.getGridProjection().getSatisfyState().getAllocateData().getAny();
 			Map<String, Integer> shosts = response.getGridProjection().getSatisfyState().getAllocateData().getHosts();
 			Map<String, Integer> sracks = response.getGridProjection().getSatisfyState().getAllocateData().getRacks();
+			List<String> members = new ArrayList<>();
+			for (GridMemberResource mr : response.getGridProjection().getMembers()) {
+				members.add(mr.getId());
+			}
 
-			data.add(new ClustersInfoReportData(response.getContainerClusterState().getClusterState().toString(),
-					response.getGridProjection().getMembers().size(), pany, phosts, pracks, sany, shosts, sracks));
+			data.add(new StreamClustersInfoReportData(response.getContainerClusterState().getClusterState().toString(),
+					response.getGridProjection().getMembers().size(), pany, phosts, pracks, sany, shosts, sracks, members));
 		} catch (YarnContainerClusterClientException e) {
 			if (e.getRootCause() instanceof HttpClientErrorException) {
 				HttpStatus statusCode = ((HttpClientErrorException)e.getRootCause()).getStatusCode();

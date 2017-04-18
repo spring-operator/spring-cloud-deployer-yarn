@@ -183,7 +183,7 @@ public class AbstractStateMachineTests {
 		}
 
 		@Override
-		public Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId) {
+		public Map<String, StreamClustersInfoReportData> getClustersStates(String yarnApplicationId) {
 			return null;
 		}
 

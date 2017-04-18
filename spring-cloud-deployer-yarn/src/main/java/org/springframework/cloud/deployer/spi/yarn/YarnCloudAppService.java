@@ -127,7 +127,7 @@ public interface YarnCloudAppService {
 	 * @param yarnApplicationId the yarn application id
 	 * @return the clusters states
 	 */
-	Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId);
+	Map<String, StreamClustersInfoReportData> getClustersStates(String yarnApplicationId);
 
 	/**
 	 * Gets the clusters.

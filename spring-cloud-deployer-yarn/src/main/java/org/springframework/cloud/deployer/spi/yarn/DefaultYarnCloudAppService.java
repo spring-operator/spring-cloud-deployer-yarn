@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 the original author or authors.
+ * Copyright 2015-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@ import org.springframework.data.hadoop.fs.FsShell;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
-import org.springframework.yarn.support.console.ContainerClusterReport.ClustersInfoReportData;
 
 /**
  * Default implementation of {@link YarnCloudAppService} which talks to rest
@@ -163,9 +162,13 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 		for (Map.Entry<String, String> entry : definitionParameters.entrySet()) {
 			String value = entry.getValue();
 			if (value.startsWith("\"") && value.endsWith("\"")) {
+				// prevent ${xxx.ddd} bad substitution with bash
+				value = value.replace("$", "\\\\\\$");
 				// escape existing double quotes
 				extraProperties.put("containerArg" + i++, entry.getKey() + "=\\" + value.substring(0, value.length()-1) + "\\\"");
 			} else {
+				// prevent ${xxx.ddd} bad substitution with bash
+				value = value.replace("$", "\\\\\\$");
 				// escape with extra double quotes
 				extraProperties.put("containerArg" + i++, entry.getKey() + "=\\\"" + value + "\\\"");
 			}
@@ -185,8 +188,8 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 	}
 
 	@Override
-	public Map<String, ClustersInfoReportData> getClustersStates(String yarnApplicationId) {
-		HashMap<String, ClustersInfoReportData> states = new HashMap<String, ClustersInfoReportData>();
+	public Map<String, StreamClustersInfoReportData> getClustersStates(String yarnApplicationId) {
+		HashMap<String, StreamClustersInfoReportData> states = new HashMap<String, StreamClustersInfoReportData>();
 		Collection<CloudAppInstanceInfo> submittedApplications = getApp(null, null, CloudAppType.STREAM).getSubmittedApplications(yarnApplicationId);
 		for (CloudAppInstanceInfo instanceInfo : submittedApplications) {
 			if (instanceInfo.getName().startsWith("scdstream:") && instanceInfo.getState().equals("RUNNING")) {
@@ -208,9 +211,9 @@ public class DefaultYarnCloudAppService implements YarnCloudAppService, Initiali
 		getApp(null, null, CloudAppType.STREAM).destroyCluster(ConverterUtils.toApplicationId(yarnApplicationId), clusterId);
 	}
 
-	private Map<String, ClustersInfoReportData> getInstanceClustersStates(String yarnApplicationId, String clusterId) {
-		HashMap<String, ClustersInfoReportData> states = new HashMap<String, ClustersInfoReportData>();
-		List<ClustersInfoReportData> clusterInfo = getApp(null, null, CloudAppType.STREAM)
+	private Map<String, StreamClustersInfoReportData> getInstanceClustersStates(String yarnApplicationId, String clusterId) {
+		HashMap<String, StreamClustersInfoReportData> states = new HashMap<String, StreamClustersInfoReportData>();
+		List<StreamClustersInfoReportData> clusterInfo = getApp(null, null, CloudAppType.STREAM)
 				.getClusterInfo(ConverterUtils.toApplicationId(yarnApplicationId), clusterId);
 		if (clusterInfo.size() == 1) {
 			states.put(clusterId, clusterInfo.get(0));

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 the original author or authors.
+ * Copyright 2015-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.yarn.am.ContainerLauncherInterceptor;
 import org.springframework.yarn.am.cluster.ContainerCluster;
 import org.springframework.yarn.am.cluster.ManagedContainerClusterAppmaster;
@@ -61,7 +62,6 @@ public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 
 	@Autowired
 	private StreamAppmasterProperties streamAppmasterProperties;
-
 
 	@Override
 	protected void onInit() throws Exception {
@@ -123,6 +123,7 @@ public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 	@Override
 	protected List<String> onContainerLaunchCommands(Container container, ContainerCluster cluster,
 			List<String> commands) {
+		log.info("onContainerLaunchCommands commands=" + StringUtils.collectionToCommaDelimitedString(commands));
 		ArrayList<String> list = new ArrayList<String>();
 		Map<String, Object> extraProperties = cluster.getExtraProperties();
 		String artifact = (String) extraProperties.get("containerArtifact");
@@ -138,6 +139,7 @@ public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 		if (extraProperties != null) {
 			for (Entry<String, Object> entry : extraProperties.entrySet()) {
 				if (entry.getKey().startsWith("containerArg")) {
+					log.info("onContainerLaunchCommands adding command=--" + entry.getValue().toString());
 					list.add(Math.max(list.size() - 2, 0), "--" + entry.getValue().toString());
 				}
 			}
@@ -196,8 +198,9 @@ public class StreamAppmaster extends ManagedContainerClusterAppmaster {
 			synchronized (indexTracker) {
 				reservedIndex = indexTracker.reserveIndex(container.getId(), containerCluster);
 			}
-			indexEnv.put("INSTANCE_INDEX", Integer.toString(reservedIndex));
+			indexEnv.put("SPRING_CLOUD_APPLICATION_GUID", container.getId().toString());
 			indexEnv.put("SPRING_APPLICATION_INDEX", Integer.toString(reservedIndex));
+			indexEnv.put("INSTANCE_INDEX", Integer.toString(reservedIndex));
 			context.setEnvironment(indexEnv);
 			return context;
 		}
