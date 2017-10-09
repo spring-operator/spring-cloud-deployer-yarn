@@ -30,6 +30,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class TaskAppmasterProperties {
 
 	private String artifact;
+	private String artifactName;
 	private Map<String, String> parameters;
 	private List<String> commandlineArguments;
 
@@ -39,6 +40,14 @@ public class TaskAppmasterProperties {
 
 	public void setArtifact(String artifact) {
 		this.artifact = artifact;
+	}
+
+	public String getArtifactName() {
+		return artifactName;
+	}
+
+	public void setArtifactName(String artifactName) {
+		this.artifactName = artifactName;
 	}
 
 	public Map<String, String> getParameters() {

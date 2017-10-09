@@ -61,6 +61,7 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 	protected void onInit() throws Exception {
 		super.onInit();
 		Assert.hasText(taskAppmasterProperties.getArtifact(), "Artifact must be set");
+		Assert.hasText(taskAppmasterProperties.getArtifactName(), "Artifact name must be set");
 		artifactResourceLocalizer = buildArtifactResourceLocalizer();
 		if (getLauncher() instanceof AbstractLauncher) {
 			((AbstractLauncher) getLauncher()).addInterceptor(new ArtifactResourceContainerLaunchInterceptor());
@@ -79,7 +80,14 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 
 	@Override
 	public List<String> getCommands() {
-		List<String> list = new ArrayList<String>(super.getCommands());
+		List<String> list = new ArrayList<>();
+		for (String command : super.getCommands()) {
+			if (command.contains("placeholder.jar")) {
+				list.add(command.replace("placeholder.jar", taskAppmasterProperties.getArtifactName()));
+			} else {
+				list.add(command);
+			}
+		}
 		if (taskAppmasterProperties.getParameters() != null) {
 			for (Entry<String, String> entry : taskAppmasterProperties.getParameters().entrySet()) {
 				if (StringUtils.hasText(entry.getValue())) {
@@ -94,6 +102,7 @@ public class TaskAppmaster extends StaticEventingAppmaster {
 				list.add(Math.max(list.size() - 2, 0), "'" + commandlineArgument + "'");
 			}
 		}
+		log.info("Using command list for task container: " + StringUtils.collectionToCommaDelimitedString(list));
 		return list;
 	}
 

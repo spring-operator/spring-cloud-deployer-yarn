@@ -119,8 +119,8 @@ public class YarnTaskLauncher implements TaskLauncher {
 		}
 		String artifactPath = isHdfsResource(resource) ? getHdfsArtifactPath(resource) : baseDir + "/artifacts/cache/";
 
-		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.yarn.appmaster.launchcontext.archiveFile=" + artifact);
 		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifact=" + artifactPath + artifact);
+		contextRunArgs.add("--spring.yarn.client.launchcontext.arguments.--spring.cloud.deployer.yarn.appmaster.artifactName=" +  artifact);
 
 		// deployment properties override servers.yml which overrides application.yml
 		for (Entry<String, String> entry : deploymentProperties.entrySet()) {

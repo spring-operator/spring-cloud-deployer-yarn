@@ -34,6 +34,7 @@ spring:
           -Dspring.jmx.enabled: false              
           -Dspring.config.location: servers.yml
         locality: false
+        archiveFile: placeholder.jar
     endpoints:
       containerregister:
         enabled: false
